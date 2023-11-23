@@ -21,16 +21,20 @@ def set_current_world():
 
 
 def connect_player(log_file_line):
-    player_details = log_file_line.split('] ')  # splits the server output into columns
+    player_details = log_file_line.split(']')  # splits the server output into columns
     server_status['players_connected'].append({
         'game_name': player_details[3][1:],
-        'site_name': 'DISPLAY NAME',
-        'ping': 100
+        'connect_time': player_details[0][1:],
+        'ip_port': player_details[1][1:],
+        'ping': player_details[2][1:],
+        'site_name': '',
+        'sec2_cd_verified': '',
+        'guid': ''
     })  # using [1:] here to remove the first '[' char
 
 
 def disconnect_player(log_file_line):
-    player_details = log_file_line.split('] ')  # splits the server output into columns
+    player_details = log_file_line.split(']')  # splits the server output into columns
     player = player_details[3][1:]  # using [1:] here to remove the first '[' char (gets the username)
     try:
         # we basically just rebuild the list of dicts here with this comprehension, not including
