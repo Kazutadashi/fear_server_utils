@@ -19,10 +19,20 @@ def set_current_world():
     server_status['current_world'] = server_status['world_being_loaded']
 
 
-def add_player(log_file_line):
+def connect_player(log_file_line):
     player_details = log_file_line.split('] ')
     print(player_details)
     server_status['players_connected'].append(player_details[3][1:])  # using [1:] here to remove the first '[' char
+
+
+def disconnect_player(log_file_line):
+    player_details = log_file_line.split('] ')
+    print(player_details)
+    player = player_details[3][1:]
+    try:
+        server_status['players_connected'].remove(player)
+    except ValueError as emsg:
+        print(f'[WARNING] Player {player} disconnected without ever connecting.\n{emsg})')
 
 
 server_log = open('/home/kazutadashi-lt/Desktop/11052023.log', 'r', errors='replace')
@@ -46,9 +56,12 @@ for line in server_log:
     if line[0:12] == 'World loaded' and server_status['loading_world_flag'] == 1:
         set_current_world()
 
-    print(line[-17:-1])
     if line[-17:-1] == 'Client connected':  # remove the last two chars to avoid newline char
-        add_player(line)
+        connect_player(line)
+
+    print(line[-20:-1])
+    if line[-20:-1] == 'Client disconnected':  # remove the last two chars to avoid newline char
+        disconnect_player(line)
 
     print(server_status)
 
