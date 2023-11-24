@@ -1,4 +1,6 @@
 import re
+import time
+import datetime
 
 
 # prefix constants
@@ -31,6 +33,8 @@ def set_current_world():
     server_status['loading_world_flag'] = 0
     server_status['current_world'] = server_status['world_being_loaded']
     server_status['world_being_loaded'] = 'None'
+    server_status['world_start_time_ms'] = time.time()
+    server_status['world_start_time'] = datetime.datetime.now()
 
 
 def connect_player(log_file_line):
@@ -124,14 +128,24 @@ def get_game_name(log_file_line):
         return None
 
 
+def get_world_time_elapsed():
+    world_elapsed_seconds = time.time() - server_status['world_start_time_ms']
+    world_time_minutes_passed = int(world_elapsed_seconds // 60)
+    world_time_seconds_passed = int(world_elapsed_seconds % 60)
+    formatted_time = '{:02}:{:02}'.format(world_time_minutes_passed, world_time_seconds_passed)
+    return formatted_time
+
+
 server_log = open('/home/kazutadashi-lt/Desktop/11052023.log', 'r', errors='replace')
 
 
 server_status = {
     'loading_world_flag': 0,
     'world_being_loaded': 'none',
+    'world_start_time_ms': 0.00,
+    'world_start_time': datetime.datetime.now(),
     'current_world': 'none',
-    'players_connected': [],
+    'players_connected': []
 }
 
 
@@ -175,3 +189,39 @@ for line in server_log:
 
 
 server_log.close()
+
+
+
+
+print(f"""
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│{'Server Status: '+ 'Running':<105}│
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│{'Current Map: ' + server_status['current_world']:<105}│
+│{'Map Start Time: ' + str(server_status['world_start_time']):<105}│
+│{'Map Time Elapsed: ' + get_world_time_elapsed():<105}│ 
+│{'Players: ' + str(len(server_status['players_connected'])) + '/16':<105}│
+│                                                                                                         │
+│Player Info                                                                                              │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│Name               Connect Time        IP:Port               Ping SEC2  GUID                             │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│{server_status['players_connected'][0]['game_name']:<2} [2023-11-05 21:26:18] 777.777.777.777:12345 1000                                      │
+│KazutadashiKazuman [2023-11-05 21:26:18] 777.777.777.777:12345 1000                                      │
+│                                                                                                         │
+│Kazutadashikazuman 2023-11-05521:26:188777.777.777.777:12345 1000 False 1225b5d2ecc8ce81a3f5bcfde5a72bc9 │
+│Kazutadashikazuman 2023-11-05 21:26:18 777.777.777.777:12345 1000 False 1225b5d2ecc8ce81a3f5bcfde5a72bc9 │
+│                                                                                                         │
+│                                                                                                         │
+│                                                                                                         │
+│                                                                                                         │
+│                                                                                                         │
+│                                                                                                         │
+│                                                                                                         │
+│                                                                                                         │
+│                                                                                                         │
+│                                                                                                         │
+│                                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+""")
