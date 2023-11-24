@@ -149,50 +149,52 @@ def get_world_time_elapsed():
 
 
 def print_output():
-    name = server_status['players_connected'][0]['game_name']
+
+    players = server_status['players_connected']
+    total_players = len(players)
+    player_lines = ""
+    max_players = 16
+
+    for i, player in enumerate(players):
+        name = player['game_name']
+        connect_time = player['connect_time']
+        ip_port = player['ip_port']
+        ping = player['ping']
+        site_name = '(' + player['site_name'] + ')'
+        sec2_cd_verified = player['sec2_cd_verified']
+        guid = player['guid']
+
+        # Format the line for the current player
+        player_line = f"│{name:<8} {site_name:<27}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│"
+
+        # Add newline character only if it's not the last player
+        if i < total_players - 1:
+            player_line += "\n"
+
+        player_lines += player_line
+
     world_time_elapsed = get_world_time_elapsed()
     world_start_time = str(server_status['world_start_time'])
     current_map = server_status['current_world']
-    player_count = str(len(server_status['players_connected'])) + '/16'
-    connect_time = server_status['players_connected'][0]['connect_time']
-    ip_port = server_status['players_connected'][0]['ip_port']
-    ping = server_status['players_connected'][0]['ping']
-    site_name = '(' + server_status['players_connected'][0]['site_name'] + ')'
-    sec2_cd_verified = server_status['players_connected'][0]['sec2_cd_verified']
-    guid = server_status['players_connected'][0]['guid']
+    player_count = str(len(server_status['players_connected'])) + '/' + str(max_players)
 
     display_width = 126
     os.system('clear')
     print(f"""
-    ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-    │Server Status:                                                                                                                │
-    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-    │{'Current Map: ' + current_map:<{display_width}}│
-    │{'Map Start Time: ' + world_start_time:<{display_width}}│
-    │{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
-    │{'Players: ' + player_count:<{display_width}}│
-    │                                                                                                                              │
-    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-    │Name (Site Name)                    Connect Time         IP:Port                Ping  SEC2   GUID                             │
-    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-    │{name} {site_name:<27}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │Kazutadashikazuman                  2023-11-05 21:26:18  777.777.777.777:12345  1000  False  1225b5d2ecc8ce81a3f5bcfde5a72bc9 │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    │                                                                                                                              │
-    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-    \n""")
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Server Status:                                                                                                                │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│{'Current Map: ' + current_map:<{display_width}}│
+│{'Map Start Time: ' + world_start_time:<{display_width}}│
+│{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
+│{'Players: ' + player_count:<{display_width}}│
+│                                                                                                                              │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│Name (Site Name)                    Connect Time         IP:Port                Ping  SEC2   GUID                             │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+{player_lines}
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+\n""")
 
 
 def parse_logs(log_file):
@@ -232,7 +234,7 @@ def parse_logs(log_file):
 
 
 def main():
-    server_log = open('/home/kazutadashi-lt/Desktop/11052023.log', 'r', errors='replace')
+    server_log = open('/home/kazutadashi-lt/Desktop/copy11052023.log', 'r', errors='replace')
     parse_logs(server_log)
     print_output()
     server_log.close()
