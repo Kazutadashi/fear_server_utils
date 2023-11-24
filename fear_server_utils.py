@@ -136,6 +136,54 @@ def get_world_time_elapsed():
     return formatted_time
 
 
+def print_output():
+    name = server_status['players_connected'][0]['game_name']
+    world_time_elapsed = get_world_time_elapsed()
+    world_start_time = str(server_status['world_start_time'])
+    current_map = server_status['current_world']
+    player_count = str(len(server_status['players_connected'])) + '/16'
+    connect_time = server_status['players_connected'][0]['connect_time']
+    ip_port = server_status['players_connected'][0]['ip_port']
+    ping = server_status['players_connected'][0]['ping']
+    site_name = server_status['players_connected'][0]['site_name']
+    sec2_cd_verified = server_status['players_connected'][0]['sec2_cd_verified']
+    guid = server_status['players_connected'][0]['guid']
+
+    display_width = 110
+
+    print(f"""
+    ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+    │{'Server Status: ' + 'Running':<{display_width}}│
+    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    │{'Current Map: ' + current_map:<{display_width}}│
+    │{'Map Start Time: ' + world_start_time:<{display_width}}│
+    │{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
+    │{'Players: ' + player_count:<{display_width}}│
+    │                                                                                                              │
+    │Player Info                                                                                                   │
+    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    │Name                Connect Time         IP:Port                Ping  SEC2   GUID                             │
+    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    │{name:<20}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│
+    │KazutadashiKazuman [2023-11-05 21:26:18] 777.777.777.777:12345 1000                                           │
+    │                                                                                                              │
+    │Kazutadashikazuman 2023-11-05521:26:188777.777.777.777:12345 1000 False 1225b5d2ecc8ce81a3f5bcfde5a72bc9      │
+    │Kazutadashikazuman  2023-11-05 21:26:18  777.777.777.777:12345  1000  False  1225b5d2ecc8ce81a3f5bcfde5a72bc9 │
+    │                                                                                                              │
+    │                                                                                                              │
+    │                                                                                                              │
+    │                                                                                                              │
+    │                                                                                                              │
+    │                                                                                                              │
+    │                                                                                                              │
+    │                                                                                                              │
+    │                                                                                                              │
+    │                                                                                                              │
+    │                                                                                                              │
+    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+    \n""")
+
+
 server_log = open('/home/kazutadashi-lt/Desktop/11052023.log', 'r', errors='replace')
 
 
@@ -150,10 +198,6 @@ server_status = {
 
 
 for line in server_log:
-    # We hard code the locations of these keywords to prevent accidental
-    # collision with usernames
-    print(server_status)
-    print(line)
 
     if line.startswith(LOADING_WORLD_PREFIX):
         load_world(line)
@@ -185,43 +229,9 @@ for line in server_log:
 
     # Harder to hardcode this one because the position of [CHAT] is variable
     if '[CHAT]' in line:  # TODO: this is dangerous because a player can name themselves chat and mess up stats
-        print("this is chat")
+        pass
 
 
 server_log.close()
 
-
-
-
-print(f"""
-┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│{'Server Status: '+ 'Running':<105}│
-├─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│{'Current Map: ' + server_status['current_world']:<105}│
-│{'Map Start Time: ' + str(server_status['world_start_time']):<105}│
-│{'Map Time Elapsed: ' + get_world_time_elapsed():<105}│ 
-│{'Players: ' + str(len(server_status['players_connected'])) + '/16':<105}│
-│                                                                                                         │
-│Player Info                                                                                              │
-├─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│Name               Connect Time        IP:Port               Ping SEC2  GUID                             │
-├─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│{server_status['players_connected'][0]['game_name']:<2} [2023-11-05 21:26:18] 777.777.777.777:12345 1000                                      │
-│KazutadashiKazuman [2023-11-05 21:26:18] 777.777.777.777:12345 1000                                      │
-│                                                                                                         │
-│Kazutadashikazuman 2023-11-05521:26:188777.777.777.777:12345 1000 False 1225b5d2ecc8ce81a3f5bcfde5a72bc9 │
-│Kazutadashikazuman 2023-11-05 21:26:18 777.777.777.777:12345 1000 False 1225b5d2ecc8ce81a3f5bcfde5a72bc9 │
-│                                                                                                         │
-│                                                                                                         │
-│                                                                                                         │
-│                                                                                                         │
-│                                                                                                         │
-│                                                                                                         │
-│                                                                                                         │
-│                                                                                                         │
-│                                                                                                         │
-│                                                                                                         │
-│                                                                                                         │
-└─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-
-""")
+print_output()
