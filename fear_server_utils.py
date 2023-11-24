@@ -2,7 +2,7 @@ import re
 import time
 import datetime
 import os
-
+import sys
 
 # prefix constants
 LOADING_WORLD_PREFIX = 'Loading world'
@@ -152,7 +152,7 @@ def print_output():
 
     players = server_status['players_connected']
     total_players = len(players)
-    player_lines = ""
+    player_lines = ""  # preparing a variable to add the print text later
     max_players = 16
 
     for i, player in enumerate(players):
@@ -165,6 +165,7 @@ def print_output():
         guid = player['guid']
 
         # Format the line for the current player
+        # :<8 and other numbers are used to keep things aligned with the f string formatting
         player_line = f"│{name:<8} {site_name:<27}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│"
 
         # Add newline character only if it's not the last player
@@ -180,6 +181,10 @@ def print_output():
 
     display_width = 126
     os.system('clear')
+
+    # TODO: alignment is not working for second player for some reason
+    # TODO: map start time is not showing correctly
+    # TODO: map time elapsed is not changing
     print(f"""
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │Server Status:                                                                                                                │
@@ -231,16 +236,25 @@ def parse_logs(log_file):
         # Harder to hardcode this one because the position of [CHAT] is variable
         if '[CHAT]' in line:  # TODO: this is dangerous because a player can name themselves chat and mess up stats
             pass
+        # TODO: update player statistics with each chat message
+        # TODO: save results over time for statistics
 
 
 def main():
-    server_log = open('/home/kazutadashi-lt/Desktop/copy11052023.log', 'r', errors='replace')
-    parse_logs(server_log)
-    print_output()
-    server_log.close()
-    return 0
+
+    try:
+        log_file_path = sys.argv[1]
+        while True:
+            server_log = open(log_file_path, 'r', errors='replace')
+            parse_logs(server_log)
+            print_output()
+            server_log.close()
+            time.sleep(1)
+    except IndexError:
+        print("No file path was given. Quitting...")
+    except KeyboardInterrupt:
+        print("\nStopping...")
 
 
-while True:
+if __name__ == '__main__':
     main()
-    time.sleep(1)
