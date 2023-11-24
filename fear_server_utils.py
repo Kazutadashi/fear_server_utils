@@ -1,6 +1,12 @@
 import re
 
 
+# prefix constants
+LOADING_WORLD_PREFIX = 'Loading world'
+WORLD_LOADED_PREFIX = 'World loaded'
+CLIENT_CONNECTED_SUFFIX = 'Client connected\n'
+CLIENT_DISCONNECTED_SUFFIX = 'Client disconnected\n'
+
 def load_world(log_file_line):
     server_status['loading_world_flag'] = 1
 
@@ -66,16 +72,17 @@ for line in server_log:
 
     # We hard code the locations of these keywords to prevent accidental
     # collision with usernames
-    if line[0:13] == 'Loading world':
+
+    if line.startswith(LOADING_WORLD_PREFIX):
         load_world(line)
 
-    if line[0:12] == 'World loaded' and server_status['loading_world_flag'] == 1:
+    if line.startswith(WORLD_LOADED_PREFIX) and server_status['loading_world_flag'] == 1:
         set_current_world()
 
-    if line[-17:-1] == 'Client connected':  # remove the last two chars to avoid newline char
+    if line.endswith(CLIENT_CONNECTED_SUFFIX):
         connect_player(line)
 
-    if line[-20:-1] == 'Client disconnected':  # remove the last two chars to avoid newline char
+    if line.endswith(CLIENT_DISCONNECTED_SUFFIX):
         disconnect_player(line)
 
     # Harder to hardcode this one because the position of [CHAT] is variable
