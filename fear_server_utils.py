@@ -1,6 +1,7 @@
 import re
 import time
 import datetime
+import os
 
 
 # prefix constants
@@ -14,6 +15,17 @@ GUID_INDICATOR_PATTERN = r'\[INFO\]: guid:'
 DISPLAY_NAME_PATTERN = r'-- Display Name:\s*(\S+)'
 GAME_NAME_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[INFO\]:'
 GUID_PATTERN = r'guid:\s*(\S+)'
+
+server_status = {
+    'loading_world_flag': 0,
+    'world_being_loaded': 'none',
+    'world_start_time_ms': 0.00,
+    'world_start_time': datetime.datetime.now(),
+    'current_world': 'none',
+    'players_connected': []
+}
+
+
 
 
 def load_world(log_file_line):
@@ -43,7 +55,7 @@ def connect_player(log_file_line):
     # We use [2:] to remove the first ' [' chars
     server_status['players_connected'].append({
         'game_name': player_details[3][2:],
-        'connect_time': player_details[0][2:],
+        'connect_time': player_details[0][1:],
         'ip_port': player_details[1][2:],
         'ping': player_details[2][2:],
         'site_name': '',
@@ -145,93 +157,88 @@ def print_output():
     connect_time = server_status['players_connected'][0]['connect_time']
     ip_port = server_status['players_connected'][0]['ip_port']
     ping = server_status['players_connected'][0]['ping']
-    site_name = server_status['players_connected'][0]['site_name']
+    site_name = '(' + server_status['players_connected'][0]['site_name'] + ')'
     sec2_cd_verified = server_status['players_connected'][0]['sec2_cd_verified']
     guid = server_status['players_connected'][0]['guid']
 
-    display_width = 110
-
+    display_width = 126
+    os.system('clear')
     print(f"""
-    ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-    │{'Server Status: ' + 'Running':<{display_width}}│
-    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+    │Server Status:                                                                                                                │
+    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
     │{'Current Map: ' + current_map:<{display_width}}│
     │{'Map Start Time: ' + world_start_time:<{display_width}}│
     │{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
     │{'Players: ' + player_count:<{display_width}}│
-    │                                                                                                              │
-    │Player Info                                                                                                   │
-    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-    │Name                Connect Time         IP:Port                Ping  SEC2   GUID                             │
-    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-    │{name:<20}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│
-    │KazutadashiKazuman [2023-11-05 21:26:18] 777.777.777.777:12345 1000                                           │
-    │                                                                                                              │
-    │Kazutadashikazuman 2023-11-05521:26:188777.777.777.777:12345 1000 False 1225b5d2ecc8ce81a3f5bcfde5a72bc9      │
-    │Kazutadashikazuman  2023-11-05 21:26:18  777.777.777.777:12345  1000  False  1225b5d2ecc8ce81a3f5bcfde5a72bc9 │
-    │                                                                                                              │
-    │                                                                                                              │
-    │                                                                                                              │
-    │                                                                                                              │
-    │                                                                                                              │
-    │                                                                                                              │
-    │                                                                                                              │
-    │                                                                                                              │
-    │                                                                                                              │
-    │                                                                                                              │
-    │                                                                                                              │
-    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+    │                                                                                                                              │
+    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    │Name (Site Name)                    Connect Time         IP:Port                Ping  SEC2   GUID                             │
+    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    │{name} {site_name:<27}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │Kazutadashikazuman                  2023-11-05 21:26:18  777.777.777.777:12345  1000  False  1225b5d2ecc8ce81a3f5bcfde5a72bc9 │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    │                                                                                                                              │
+    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
     \n""")
 
 
-server_log = open('/home/kazutadashi-lt/Desktop/11052023.log', 'r', errors='replace')
+def parse_logs(log_file):
+    for line in log_file:
+
+        if line.startswith(LOADING_WORLD_PREFIX):
+            load_world(line)
+            continue
+
+        if line.startswith(WORLD_LOADED_PREFIX) and server_status['loading_world_flag'] == 1:
+            set_current_world()
+            continue
+
+        if line.endswith(CLIENT_CONNECTED_SUFFIX):
+            connect_player(line)
+            continue
+
+        if line.endswith(CLIENT_DISCONNECTED_SUFFIX):
+            disconnect_player(line)
+            continue
+
+        if re.search(DISPLAY_NAME_INDICATOR_PATTERN, line):
+            set_display_name(line)
+            continue
+
+        if line.endswith(PASSED_SEC2_CD_KEY_CHECK_SUFFIX):
+            set_sec2_success_flag(line)
+            continue
+
+        if re.search(GUID_INDICATOR_PATTERN, line):
+            set_guid(line)
+            continue
+
+        # Harder to hardcode this one because the position of [CHAT] is variable
+        if '[CHAT]' in line:  # TODO: this is dangerous because a player can name themselves chat and mess up stats
+            pass
 
 
-server_status = {
-    'loading_world_flag': 0,
-    'world_being_loaded': 'none',
-    'world_start_time_ms': 0.00,
-    'world_start_time': datetime.datetime.now(),
-    'current_world': 'none',
-    'players_connected': []
-}
+def main():
+    server_log = open('/home/kazutadashi-lt/Desktop/11052023.log', 'r', errors='replace')
+    parse_logs(server_log)
+    print_output()
+    server_log.close()
+    return 0
 
 
-for line in server_log:
-
-    if line.startswith(LOADING_WORLD_PREFIX):
-        load_world(line)
-        continue
-
-    if line.startswith(WORLD_LOADED_PREFIX) and server_status['loading_world_flag'] == 1:
-        set_current_world()
-        continue
-
-    if line.endswith(CLIENT_CONNECTED_SUFFIX):
-        connect_player(line)
-        continue
-
-    if line.endswith(CLIENT_DISCONNECTED_SUFFIX):
-        disconnect_player(line)
-        continue
-
-    if re.search(DISPLAY_NAME_INDICATOR_PATTERN, line):
-        set_display_name(line)
-        continue
-
-    if line.endswith(PASSED_SEC2_CD_KEY_CHECK_SUFFIX):
-        set_sec2_success_flag(line)
-        continue
-
-    if re.search(GUID_INDICATOR_PATTERN, line):
-        set_guid(line)
-        continue
-
-    # Harder to hardcode this one because the position of [CHAT] is variable
-    if '[CHAT]' in line:  # TODO: this is dangerous because a player can name themselves chat and mess up stats
-        pass
-
-
-server_log.close()
-
-print_output()
+while True:
+    main()
+    time.sleep(1)
