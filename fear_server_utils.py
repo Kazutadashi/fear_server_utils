@@ -6,7 +6,9 @@ LOADING_WORLD_PREFIX = 'Loading world'
 WORLD_LOADED_PREFIX = 'World loaded'
 CLIENT_CONNECTED_SUFFIX = 'Client connected\n'
 CLIENT_DISCONNECTED_SUFFIX = 'Client disconnected\n'
-DISPLAY_NAME_PATTERN = '\[INFO\].*-- Display Name:'
+DISPLAY_NAME_INDICATOR_PATTERN = r'\[INFO\].*-- Display Name:'
+DISPLAY_NAME_PATTERN = r'-- Display Name:\s*(\S+)'
+GAME_NAME_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[INFO\]:'
 
 
 def load_world(log_file_line):
@@ -59,21 +61,23 @@ def disconnect_player(log_file_line):
 
 def add_display_name(log_file_line):
 
-    player_details = log_file_line.split(']')
-    game_name = player_details[3][2:]  # remove the leading space and '[' character to get the name
-
-    display_name_pattern = r'-- Display Name:\s*(\S+)'
-    match = re.search(display_name_pattern, log_file_line)
-
-    if match:
+    game_name = re.search(GAME_NAME_PATTERN, log_file_line).group(1)
+    # if they have a valid game name
+    if game_name:
+        # search for that player in the list of player_dict objects
         for player in server_status['players_connected']:
+            # when you find the match
             if player['game_name'] == game_name:
-                player['site_name'] = match.group(1).strip()
-            else:
-                # TODO: splitting by ']' causes players with names like "[RaW]coolguy" to get split up as well and cause problems.
-                player['site_name'] = 'NAME MISMATCH!'
+                # see what the display name is in the log file
+                site_name_match = re.search(DISPLAY_NAME_PATTERN, log_file_line)
+                # if there is a valid display name, set it, otherwise set it to None
+                if site_name_match:
+                    player['site_name'] = site_name_match.group(1)
+                    break
+                else:
+                    player['site_name'] = None
     else:
-        name = None
+        print('No valid game name for this player. Something went wrong?')
 
 
 server_log = open('/home/kazutadashi-lt/Desktop/11052023.log', 'r', errors='replace')
@@ -91,6 +95,7 @@ server_status = {
 for line in server_log:
     # We hard code the locations of these keywords to prevent accidental
     # collision with usernames
+    print(server_status)
     print(line)
 
     if line.startswith(LOADING_WORLD_PREFIX):
@@ -109,7 +114,7 @@ for line in server_log:
         disconnect_player(line)
         continue
 
-    if re.search(DISPLAY_NAME_PATTERN, line):  # If the line has -- Display Name: in it
+    if re.search(DISPLAY_NAME_INDICATOR_PATTERN, line):  # If the line has -- Display Name: in it
         add_display_name(line)
         continue
 
@@ -118,7 +123,7 @@ for line in server_log:
         print("this is chat")
 
 
-    print(server_status)
+
 
 
 
