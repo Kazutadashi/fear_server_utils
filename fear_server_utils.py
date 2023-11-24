@@ -6,9 +6,12 @@ LOADING_WORLD_PREFIX = 'Loading world'
 WORLD_LOADED_PREFIX = 'World loaded'
 CLIENT_CONNECTED_SUFFIX = 'Client connected\n'
 CLIENT_DISCONNECTED_SUFFIX = 'Client disconnected\n'
+PASSED_SEC2_CD_KEY_CHECK_SUFFIX = 'Client passed cd-key check [SEC2]\n'
 DISPLAY_NAME_INDICATOR_PATTERN = r'\[INFO\].*-- Display Name:'
+GUID_INDICATOR_PATTERN = r'\[INFO\]: guid:'
 DISPLAY_NAME_PATTERN = r'-- Display Name:\s*(\S+)'
 GAME_NAME_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[INFO\]:'
+GUID_PATTERN = r'guid:\s*(\S+)'
 
 
 def load_world(log_file_line):
@@ -59,9 +62,9 @@ def disconnect_player(log_file_line):
         print(f'[WARNING] Player {player} somehow disconnected without ever connecting.\n{emsg})')
 
 
-def add_display_name(log_file_line):
+def set_display_name(log_file_line):
 
-    game_name = re.search(GAME_NAME_PATTERN, log_file_line).group(1)
+    game_name = get_game_name(log_file_line)
     # if they have a valid game name
     if game_name:
         # search for that player in the list of player_dict objects
@@ -80,6 +83,47 @@ def add_display_name(log_file_line):
         print('No valid game name for this player. Something went wrong?')
 
 
+def set_guid(log_file_line):
+    game_name = get_game_name(log_file_line)
+
+    # if they have a valid game name
+    if game_name:
+        # search for that player in the list of player_dict objects
+        for player in server_status['players_connected']:
+            # when you find the match
+            if player['game_name'] == game_name:
+                # see what the guid is in the log file
+                guid_search = re.search(GUID_PATTERN, log_file_line)
+                # if there is a valid guid, set it, otherwise set it to None
+                if guid_search:
+                    player['guid'] = guid_search.group(1)
+                    break
+                else:
+                    player['guid'] = None
+    else:
+        print(f'[WARNING] Unable to set guid for player: {game_name}')
+
+
+def set_sec2_success_flag(log_file_line):
+    game_name = get_game_name(log_file_line)
+
+    if game_name:
+        for player in server_status['players_connected']:
+            if player['game_name'] == game_name:
+                player['sec2_cd_verified'] = 'True'
+                break
+    else:
+        print(f'[WARNING] Unable to set sec2 pass flag for player: {game_name}')
+
+
+def get_game_name(log_file_line):
+    game_name = re.search(GAME_NAME_PATTERN, log_file_line)
+    if game_name:
+        return game_name.group(1)
+    else:
+        return None
+
+
 server_log = open('/home/kazutadashi-lt/Desktop/11052023.log', 'r', errors='replace')
 
 
@@ -89,7 +133,6 @@ server_status = {
     'current_world': 'none',
     'players_connected': [],
 }
-
 
 
 for line in server_log:
@@ -114,17 +157,21 @@ for line in server_log:
         disconnect_player(line)
         continue
 
-    if re.search(DISPLAY_NAME_INDICATOR_PATTERN, line):  # If the line has -- Display Name: in it
-        add_display_name(line)
+    if re.search(DISPLAY_NAME_INDICATOR_PATTERN, line):
+        set_display_name(line)
+        continue
+
+    if line.endswith(PASSED_SEC2_CD_KEY_CHECK_SUFFIX):
+        set_sec2_success_flag(line)
+        continue
+
+    if re.search(GUID_INDICATOR_PATTERN, line):
+        set_guid(line)
         continue
 
     # Harder to hardcode this one because the position of [CHAT] is variable
     if '[CHAT]' in line:  # TODO: this is dangerous because a player can name themselves chat and mess up stats
         print("this is chat")
-
-
-
-
 
 
 server_log.close()
