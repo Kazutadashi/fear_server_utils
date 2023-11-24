@@ -50,18 +50,36 @@ def set_current_world():
 
 
 def connect_player(log_file_line):
-    player_details = log_file_line.split(']')  # splits the server output into columns
 
-    # We use [2:] to remove the first ' [' chars
-    server_status['players_connected'].append({
-        'game_name': player_details[3][2:],
-        'connect_time': player_details[0][1:],
-        'ip_port': player_details[1][2:],
-        'ping': player_details[2][2:],
-        'site_name': '',
-        'sec2_cd_verified': '',
-        'guid': ''
-    })  # using [1:] here to remove the first '[' char
+    player_details = log_file_line.split(']')  # splits the server output into columns
+    game_name = get_game_name(log_file_line)
+
+    if len(server_status['players_connected']) == 0:
+        server_status['players_connected'].append({
+            'game_name': game_name,
+            'connect_time': player_details[0][1:],
+            'ip_port': player_details[1][2:],
+            'ping': player_details[2][2:],
+            'site_name': '',
+            'sec2_cd_verified': '',
+            'guid': ''
+        })
+    else:
+        for player in server_status['players_connected']:
+            if player['game_name'] == game_name: #  already in players list
+                return 0 # we hit a match can stop this function
+
+        # if we did not hit a match, then this is a new player and we should add them
+        server_status['players_connected'].append({
+            'game_name': game_name,
+            'connect_time': player_details[0][1:],
+            'ip_port': player_details[1][2:],
+            'ping': player_details[2][2:],
+            'site_name': '',
+            'sec2_cd_verified': '',
+            'guid': ''
+        })  # using [1:] here to remove the first '[' char
+
 
 
 def disconnect_player(log_file_line):
@@ -94,7 +112,7 @@ def set_display_name(log_file_line):
                     player['site_name'] = site_name_match.group(1)
                     break
                 else:
-                    player['site_name'] = None
+                    player['site_name'] = 'NA'
     else:
         print('No valid game name for this player. Something went wrong?')
 
@@ -115,7 +133,7 @@ def set_guid(log_file_line):
                     player['guid'] = guid_search.group(1)
                     break
                 else:
-                    player['guid'] = None
+                    player['guid'] = 'NA'
     else:
         print(f'[WARNING] Unable to set guid for player: {game_name}')
 
@@ -166,7 +184,7 @@ def print_output():
 
         # Format the line for the current player
         # :<8 and other numbers are used to keep things aligned with the f string formatting
-        player_line = f"│{name:<8} {site_name:<27}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│"
+        player_line = f"│{name:<9}{site_name:<27}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│"
 
         # Add newline character only if it's not the last player
         if i < total_players - 1:
