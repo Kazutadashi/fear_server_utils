@@ -178,13 +178,14 @@ def print_output():
         connect_time = player['connect_time']
         ip_port = player['ip_port']
         ping = player['ping']
-        site_name = '(' + player['site_name'] + ')'
+        site_name = player['site_name']
         sec2_cd_verified = player['sec2_cd_verified']
         guid = player['guid']
 
         # Format the line for the current player
         # :<8 and other numbers are used to keep things aligned with the f string formatting
-        player_line = f"│{name:<9}{site_name:<27}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│"
+        player_line = f"│{name:<22}{site_name:<33}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│"
+
 
         # Add newline character only if it's not the last player
         if i < total_players - 1:
@@ -197,27 +198,28 @@ def print_output():
     current_map = server_status['current_world']
     player_count = str(len(server_status['players_connected'])) + '/' + str(max_players)
 
-    display_width = 126
+    display_width = 145
     os.system('clear')
 
-    # TODO: alignment is not working for second player for some reason
     # TODO: map start time is not showing correctly
     # TODO: map time elapsed is not changing
+
     print(f"""
-┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│Server Status:                                                                                                                │
-├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Server Status:                                                                                                                                   │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │{'Current Map: ' + current_map:<{display_width}}│
 │{'Map Start Time: ' + world_start_time:<{display_width}}│
 │{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
 │{'Players: ' + player_count:<{display_width}}│
-│                                                                                                                              │
-├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│Name (Site Name)                    Connect Time         IP:Port                Ping  SEC2   GUID                             │
-├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                                                 │ 
+│Player Details                                                                                                                                   │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│Name                  Site Name                        Connect Time         IP:Port                Ping  SEC2   GUID                             │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 {player_lines}
-└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-\n""")
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+    \n""")
 
 
 def parse_logs(log_file):
