@@ -15,6 +15,7 @@ GUID_INDICATOR_PATTERN = r'\[INFO\]: guid:'
 DISPLAY_NAME_PATTERN = r'-- Display Name:\s*(\S+)'
 GAME_NAME_INFO_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[INFO\]:'
 GAME_NAME_CHAT_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[CHAT\]:'
+GAME_NAME_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[(?:CHAT|INFO)\]:'
 GUID_PATTERN = r'guid:\s*(\S+)'
 CHAT_INDICATOR_PATTERN = r'\[CHAT\]:'
 
@@ -24,7 +25,9 @@ server_status = {
     'world_start_time_ms': 0.00,
     'world_start_time': datetime.datetime.now(),
     'current_world': 'none',
-    'players_connected': []
+    'players_connected': [],
+    'server_status_state': 'Healthy',
+    'desynced_players': set()
 }
 
 
@@ -191,17 +194,14 @@ def print_output():
     world_time_elapsed = calculate_world_time_elapsed()
     world_start_time = str(server_status['world_start_time'])
     current_map = server_status['current_world']
+    server_status_state = server_status['server_status_state']
     player_count = str(len(server_status['players_connected'])) + '/' + str(max_players)
-
 
     os.system('clear')
 
-    # TODO: map start time is not showing correctly
-    # TODO: map time elapsed is not changing
-
     print(f"""
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│Server Status:                                                                                                                                       │
+│{'Server Status: ' + server_status_state:<{display_width}}│
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │{'Current Map: ' + current_map:<{display_width}}│
 │{'Map Start Time: ' + world_start_time:<{display_width}}│
@@ -235,6 +235,23 @@ def check_bugged_players(log_file_line):
             disconnect_player(log_file_line)
 
 
+def check_for_renamed_player(log_file_line):
+
+    list_of_apparent_connected_players = []
+    for players in server_status['players_connected']:
+        list_of_apparent_connected_players.append(players['game_name'])
+
+    game_name = get_game_name(log_file_line, GAME_NAME_PATTERN)
+
+    # something is wrong if we have a name thats not connected
+    # if the name is None we dont care, so we check if the game_name is a truthy value
+    if game_name not in list_of_apparent_connected_players and game_name:
+        print(f'{game_name} IS NOT IN LIST OF CONNECTED PLAYERS!')
+        server_status['server_status_state'] = '[WARNING]: Players De-Synced!'
+        server_status['desynced_players'].add(game_name)
+        print(server_status['desynced_players'])
+
+
 def calculate_world_time_elapsed():
     world_start_time = server_status['world_start_time']
     time_elapsed = datetime.datetime.now() - world_start_time
@@ -257,8 +274,6 @@ def update_player_stats(log_file_line):
 def parse_logs(log_file_lines):
     for line in log_file_lines:
 
-        check_bugged_players(line)
-
         if line.startswith(LOADING_WORLD_PREFIX):
             load_world(line)
             continue
@@ -269,10 +284,6 @@ def parse_logs(log_file_lines):
 
         if line.endswith(CLIENT_CONNECTED_SUFFIX):
             connect_player(line)
-            continue
-
-        if line.endswith(CLIENT_DISCONNECTED_SUFFIX):
-            disconnect_player(line)
             continue
 
         if re.search(DISPLAY_NAME_INDICATOR_PATTERN, line):
@@ -287,9 +298,19 @@ def parse_logs(log_file_lines):
             set_guid(line)
             continue
 
+        if line.endswith(CLIENT_DISCONNECTED_SUFFIX):
+            check_for_renamed_player(line)
+            check_bugged_players(line)
+            disconnect_player(line)
+            continue
+
         if re.search(CHAT_INDICATOR_PATTERN, line):
+            check_for_renamed_player(line)
+            check_bugged_players(line)
             update_player_stats(line)
             continue
+
+
 
         # TODO: save results over time for statistics
 
@@ -326,6 +347,7 @@ def main():
         last_read_position_by_size = os.path.getsize(log_file_path)
         server_log_lines.close()
         while True:
+            print(server_status)
             last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
             parse_logs(new_lines)
             print_output()
