@@ -26,7 +26,7 @@ server_status = {
     'world_start_time': datetime.datetime.now(),
     'current_world': 'none',
     'players_connected': [],
-    'server_status_state': 'Healthy',
+    'server_status_state': '[GOOD]',
     'desynced_players': set()
 }
 
@@ -246,10 +246,8 @@ def check_for_renamed_player(log_file_line):
     # something is wrong if we have a name thats not connected
     # if the name is None we dont care, so we check if the game_name is a truthy value
     if game_name not in list_of_apparent_connected_players and game_name:
-        print(f'{game_name} IS NOT IN LIST OF CONNECTED PLAYERS!')
-        server_status['server_status_state'] = '[WARNING]: Players De-Synced!'
+        server_status['server_status_state'] = '[WARNING] Unlisted Player(s) In Server!'
         server_status['desynced_players'].add(game_name)
-        print(server_status['desynced_players'])
 
 
 def calculate_world_time_elapsed():
@@ -347,7 +345,6 @@ def main():
         last_read_position_by_size = os.path.getsize(log_file_path)
         server_log_lines.close()
         while True:
-            print(server_status)
             last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
             parse_logs(new_lines)
             print_output()
