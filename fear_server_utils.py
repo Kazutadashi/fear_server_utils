@@ -81,10 +81,8 @@ def connect_player(log_file_line):
         })  # using [1:] here to remove the first '[' char
 
 
-
 def disconnect_player(log_file_line):
-    player_details = log_file_line.split(']')  # splits the server output into columns
-    player = player_details[3][2:]  # using [2:] here to remove the first ' [' chars (gets the username)
+    player = get_game_name(log_file_line)
     try:
         # we basically just rebuild the list of dicts here with this comprehension, not including
         # the one that needs to be removed.
@@ -172,33 +170,36 @@ def print_output():
     total_players = len(players)
     player_lines = ""  # preparing a variable to add the print text later
     max_players = 16
+    display_width = 145
 
-    for i, player in enumerate(players):
-        name = player['game_name']
-        connect_time = player['connect_time']
-        ip_port = player['ip_port']
-        ping = player['ping']
-        site_name = player['site_name']
-        sec2_cd_verified = player['sec2_cd_verified']
-        guid = player['guid']
+    if total_players == 0:
+        player_lines = f'│{"":<{display_width}}│'
+    else:
+        for i, player in enumerate(players):
+            name = player['game_name']
+            connect_time = player['connect_time']
+            ip_port = player['ip_port']
+            ping = player['ping']
+            site_name = player['site_name']
+            sec2_cd_verified = player['sec2_cd_verified']
+            guid = player['guid']
 
-        # Format the line for the current player
-        # :<8 and other numbers are used to keep things aligned with the f string formatting
-        player_line = f"│{name:<22}{site_name:<33}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│"
+            # Format the line for the current player
+            # :<8 and other numbers are used to keep things aligned with the f string formatting
+            player_line = f"│{name:<22}{site_name:<33}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│"
 
+            # Add newline character only if it's not the last player
+            if i < total_players - 1:
+                player_line += "\n"
 
-        # Add newline character only if it's not the last player
-        if i < total_players - 1:
-            player_line += "\n"
-
-        player_lines += player_line
+            player_lines += player_line
 
     world_time_elapsed = get_world_time_elapsed()
     world_start_time = str(server_status['world_start_time'])
     current_map = server_status['current_world']
     player_count = str(len(server_status['players_connected'])) + '/' + str(max_players)
 
-    display_width = 145
+
     os.system('clear')
 
     # TODO: map start time is not showing correctly
@@ -222,8 +223,28 @@ def print_output():
     \n""")
 
 
+def check_bugged_players(log_file_line):
+    # there is a bug with the linux server application where it will sometimes not log
+    # the client disconnect message. Possibly if the player crashes or alt f4. The exact reason isn't know
+    # but this causes there to be a player who is ALWAYS on the server even when they aren't
+    # we need to delete this player so they dont keep messing up stats for historical data
+    # for now the only solution I can think is to delete them from the players list after 10 hours or something
+
+    for players in server_status['players_connected']:
+        player_connect_time = players['connect_time']
+        formatted_player_connect_time = datetime.datetime.strptime(player_connect_time, '%Y-%m-%d %H:%M:%S')
+        current_time = datetime.datetime.now()
+
+        time_difference = current_time - formatted_player_connect_time
+        difference_in_seconds = time_difference.days*24*60*60 + time_difference.seconds
+        if difference_in_seconds >= 43200:  # if the player has been in the server for 12 hours, assume theyre bugged
+            disconnect_player(log_file_line)
+
+
 def parse_logs(log_file):
     for line in log_file:
+
+        check_bugged_players(line)
 
         if line.startswith(LOADING_WORLD_PREFIX):
             load_world(line)
@@ -265,6 +286,7 @@ def main():
     try:
         log_file_path = sys.argv[1]
         while True:
+
             server_log = open(log_file_path, 'r', errors='replace')
             parse_logs(server_log)
             print_output()
