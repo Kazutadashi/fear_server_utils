@@ -156,14 +156,6 @@ def get_game_name(log_file_line):
         return None
 
 
-def get_world_time_elapsed():
-    world_elapsed_seconds = time.time() - server_status['world_start_time_ms']
-    world_time_minutes_passed = int(world_elapsed_seconds // 60)
-    world_time_seconds_passed = int(world_elapsed_seconds % 60)
-    formatted_time = '{:02}:{:02}'.format(world_time_minutes_passed, world_time_seconds_passed)
-    return formatted_time
-
-
 def print_output():
 
     players = server_status['players_connected']
@@ -194,7 +186,7 @@ def print_output():
 
             player_lines += player_line
 
-    world_time_elapsed = get_world_time_elapsed()
+    world_time_elapsed = calculate_world_time_elapsed()
     world_start_time = str(server_status['world_start_time'])
     current_map = server_status['current_world']
     player_count = str(len(server_status['players_connected'])) + '/' + str(max_players)
@@ -241,8 +233,18 @@ def check_bugged_players(log_file_line):
             disconnect_player(log_file_line)
 
 
-def parse_logs(log_file):
-    for line in log_file:
+def calculate_world_time_elapsed():
+    world_start_time = server_status['world_start_time']
+    time_elapsed = datetime.datetime.now() - world_start_time
+    seconds_elapsed = time_elapsed.days*24*60*60 + time_elapsed.seconds
+    world_time_minutes_passed = int(seconds_elapsed // 60)
+    world_time_seconds_passed = int(seconds_elapsed % 60)
+    formatted_time = '{:02}:{:02}'.format(world_time_minutes_passed, world_time_seconds_passed)
+    return formatted_time
+
+
+def parse_logs(log_file_lines):
+    for line in log_file_lines:
 
         check_bugged_players(line)
 
@@ -281,16 +283,42 @@ def parse_logs(log_file):
         # TODO: save results over time for statistics
 
 
+def read_new_lines(filepath, last_read_position):
+    """
+    Reads new lines from the file that were added after the last_read_position.
+
+    Args:
+    filepath (str): Path to the file.
+    last_read_position (int): The position in the file from where to start reading.
+
+    Returns:
+    tuple: A tuple containing the updated last_read_position and a list of new lines.
+    """
+    new_lines = []
+    current_size = os.path.getsize(filepath)
+
+    if current_size > last_read_position:
+        with open(filepath, 'r') as file:
+            file.seek(last_read_position)
+            new_lines = file.readlines()
+            last_read_position = current_size
+
+    return last_read_position, new_lines
+
+
 def main():
 
     try:
-        log_file_path = sys.argv[1]
+        # log_file_path = sys.argv[1]
+        log_file_path = '/home/kazutadashi-lt/Desktop/example311052023.log'
+        server_log_lines = open(log_file_path, 'r', errors='replace')
+        parse_logs(server_log_lines)
+        last_read_position_by_size = os.path.getsize(log_file_path)
+        server_log_lines.close()
         while True:
-
-            server_log = open(log_file_path, 'r', errors='replace')
-            parse_logs(server_log)
+            last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
+            parse_logs(new_lines)
             print_output()
-            server_log.close()
             time.sleep(1)
     except IndexError:
         print("No file path was given. Quitting...")
