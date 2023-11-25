@@ -13,8 +13,10 @@ PASSED_SEC2_CD_KEY_CHECK_SUFFIX = 'Client passed cd-key check [SEC2]\n'
 DISPLAY_NAME_INDICATOR_PATTERN = r'\[INFO\].*-- Display Name:'
 GUID_INDICATOR_PATTERN = r'\[INFO\]: guid:'
 DISPLAY_NAME_PATTERN = r'-- Display Name:\s*(\S+)'
-GAME_NAME_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[INFO\]:'
+GAME_NAME_INFO_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[INFO\]:'
+GAME_NAME_CHAT_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[CHAT\]:'
 GUID_PATTERN = r'guid:\s*(\S+)'
+CHAT_INDICATOR_PATTERN = r'\[CHAT\]:'
 
 server_status = {
     'loading_world_flag': 0,
@@ -52,7 +54,7 @@ def set_current_world():
 def connect_player(log_file_line):
 
     player_details = log_file_line.split(']')  # splits the server output into columns
-    game_name = get_game_name(log_file_line)
+    game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
 
     if len(server_status['players_connected']) == 0:
         server_status['players_connected'].append({
@@ -82,7 +84,7 @@ def connect_player(log_file_line):
 
 
 def disconnect_player(log_file_line):
-    player = get_game_name(log_file_line)
+    player = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
     try:
         # we basically just rebuild the list of dicts here with this comprehension, not including
         # the one that needs to be removed.
@@ -96,7 +98,7 @@ def disconnect_player(log_file_line):
 
 def set_display_name(log_file_line):
 
-    game_name = get_game_name(log_file_line)
+    game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
     # if they have a valid game name
     if game_name:
         # search for that player in the list of player_dict objects
@@ -116,7 +118,7 @@ def set_display_name(log_file_line):
 
 
 def set_guid(log_file_line):
-    game_name = get_game_name(log_file_line)
+    game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
 
     # if they have a valid game name
     if game_name:
@@ -137,7 +139,7 @@ def set_guid(log_file_line):
 
 
 def set_sec2_success_flag(log_file_line):
-    game_name = get_game_name(log_file_line)
+    game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
 
     if game_name:
         for player in server_status['players_connected']:
@@ -148,8 +150,8 @@ def set_sec2_success_flag(log_file_line):
         print(f'[WARNING] Unable to set sec2 pass flag for player: {game_name}')
 
 
-def get_game_name(log_file_line):
-    game_name = re.search(GAME_NAME_PATTERN, log_file_line)
+def get_game_name(log_file_line, regex_pattern):
+    game_name = re.search(regex_pattern, log_file_line)
     if game_name:
         return game_name.group(1)
     else:
@@ -162,7 +164,7 @@ def print_output():
     total_players = len(players)
     player_lines = ""  # preparing a variable to add the print text later
     max_players = 16
-    display_width = 145
+    display_width = 149
 
     if total_players == 0:
         player_lines = f'│{"":<{display_width}}│'
@@ -178,7 +180,7 @@ def print_output():
 
             # Format the line for the current player
             # :<8 and other numbers are used to keep things aligned with the f string formatting
-            player_line = f"│{name:<22}{site_name:<33}{connect_time:<21}{ip_port:<23}{ping:<6}{sec2_cd_verified:<7}{guid:<33}│"
+            player_line = f"│{name:<22}{site_name:<33}{connect_time:<21}{ip_port:<23}{ping:<10}{sec2_cd_verified:<7}{guid:<33}│"
 
             # Add newline character only if it's not the last player
             if i < total_players - 1:
@@ -198,20 +200,20 @@ def print_output():
     # TODO: map time elapsed is not changing
 
     print(f"""
-┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│Server Status:                                                                                                                                   │
-├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Server Status:                                                                                                                                       │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │{'Current Map: ' + current_map:<{display_width}}│
 │{'Map Start Time: ' + world_start_time:<{display_width}}│
 │{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
 │{'Players: ' + player_count:<{display_width}}│
-│                                                                                                                                                 │ 
-│Player Details                                                                                                                                   │
-├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│Name                  Site Name                        Connect Time         IP:Port                Ping  SEC2   GUID                             │
-├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                                                     │ 
+│Player Details                                                                                                                                       │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│Name                  Site Name                        Connect Time         IP:Port                Ping      SEC2   GUID                             │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 {player_lines}
-└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
     \n""")
 
 
@@ -241,6 +243,15 @@ def calculate_world_time_elapsed():
     world_time_seconds_passed = int(seconds_elapsed % 60)
     formatted_time = '{:02}:{:02}'.format(world_time_minutes_passed, world_time_seconds_passed)
     return formatted_time
+
+
+def update_player_stats(log_file_line):
+    game_name = get_game_name(log_file_line, GAME_NAME_CHAT_PATTERN)
+
+    for players in server_status['players_connected']:
+        if players['game_name'] == game_name:
+            player_details = log_file_line.split(']')
+            players['ping'] = player_details[2][2:]
 
 
 def parse_logs(log_file_lines):
@@ -276,10 +287,10 @@ def parse_logs(log_file_lines):
             set_guid(line)
             continue
 
-        # Harder to hardcode this one because the position of [CHAT] is variable
-        if '[CHAT]' in line:  # TODO: this is dangerous because a player can name themselves chat and mess up stats
-            pass
-        # TODO: update player statistics with each chat message
+        if re.search(CHAT_INDICATOR_PATTERN, line):
+            update_player_stats(line)
+            continue
+
         # TODO: save results over time for statistics
 
 
@@ -309,8 +320,7 @@ def read_new_lines(filepath, last_read_position):
 def main():
 
     try:
-        # log_file_path = sys.argv[1]
-        log_file_path = '/home/kazutadashi-lt/Desktop/example311052023.log'
+        log_file_path = sys.argv[1]
         server_log_lines = open(log_file_path, 'r', errors='replace')
         parse_logs(server_log_lines)
         last_read_position_by_size = os.path.getsize(log_file_path)
