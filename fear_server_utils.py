@@ -240,6 +240,11 @@ def check_bugged_players(log_file_line):
 
 
 def check_for_renamed_player(log_file_line):
+    # the server does not log when people change their nicks in game
+    # This means that if they change their nick, then leave the server
+    # the original name for that player will remain connected in the player list
+    # even though they are not in the server. I dont know a way around this for now, but
+    # this at least tells us when its happening
 
     list_of_apparent_connected_players = []
     for players in server_status['players_connected']:
