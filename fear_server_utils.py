@@ -351,7 +351,7 @@ def save_server_stats(save_file_path):
         current_date = current_time_stamp.date()
         current_time = current_time_stamp.time()
         num_players_in_server = len(server_status['players_connected'])
-        current_pings = [players['ping'] for players in server_status['players_connected']]
+        current_pings = [int(players['ping']) for players in server_status['players_connected']]
         if len(current_pings) == 0:
             min_ping, max_ping, average_ping = 0, 0, 0
         else:
@@ -367,10 +367,10 @@ def save_server_stats(save_file_path):
         with open(save_file_path, "a") as csv_file:
             csv_file.write(csv_line)
 
-        print(save_file_path)
-        print(current_date, current_time, num_players_in_server, min_ping, max_ping, average_ping, sep=',')
-        print('\n')
-        time.sleep(5)
+        # print(save_file_path)
+        # print(current_date, current_time, num_players_in_server, min_ping, max_ping, average_ping, sep=',')
+        # print('\n')
+        # time.sleep(5)
     else:
         pass
 
