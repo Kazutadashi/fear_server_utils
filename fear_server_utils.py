@@ -251,6 +251,7 @@ def check_for_renamed_player(log_file_line):
 
 
 def calculate_world_time_elapsed():
+    # TODO: if someone votes for the same map the clock still goes up, doesnt reset
     world_start_time = server_status['world_start_time']
     time_elapsed = datetime.datetime.now() - world_start_time
     seconds_elapsed = time_elapsed.days*24*60*60 + time_elapsed.seconds
@@ -328,7 +329,7 @@ def read_new_lines(filepath, last_read_position):
     current_size = os.path.getsize(filepath)
 
     if current_size > last_read_position:
-        with open(filepath, 'r') as file:
+        with open(filepath, 'r', errors='replace') as file:
             file.seek(last_read_position)
             new_lines = file.readlines()
             last_read_position = current_size
