@@ -27,7 +27,8 @@ server_status = {
     'current_world': 'none',
     'players_connected': [],
     'server_status_state': '[GOOD]',
-    'desynced_players': set()
+    'desynced_players': set(),
+    'last_write_time': datetime.datetime.now()
 }
 
 
@@ -345,6 +346,32 @@ def read_new_lines(filepath, last_read_position):
     return last_read_position, new_lines
 
 
+def save_server_stats(save_file_path):
+    # takes a snapshot of some player statistics every 30 seconds so we can see when the server is popular
+
+    current_time_stamp = datetime.datetime.now()
+
+    if (current_time_stamp - server_status['last_write_time']).total_seconds() >= 30:
+        current_date = current_time_stamp.date()
+        current_time = current_time_stamp.time()
+        num_players_in_server = len(server_status['players_connected'])
+        current_pings = [players['ping'] for players in server_status['players_connected']]
+        if len(current_pings) == 0:
+            min_ping, max_ping, average_ping = 0, 0, 0
+        else:
+            min_ping = min(current_pings)
+            max_ping = max(current_pings)
+            average_ping = sum(current_pings) / len(current_pings)
+
+        server_status['last_write_time'] = datetime.datetime.now()
+
+        print(save_file_path)
+        print(current_date, current_time, num_players_in_server, min_ping, max_ping, average_ping, sep=',')
+        print('\n')
+        time.sleep(5)
+    else:
+        pass
+
 def main():
 
     try:
@@ -357,6 +384,7 @@ def main():
             last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
             parse_logs(new_lines)
             print_output()
+            save_server_stats('mypath/file.csv')
             time.sleep(1)
     except IndexError:
         print("No file path was given. Quitting...")
