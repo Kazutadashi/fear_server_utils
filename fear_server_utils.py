@@ -319,10 +319,6 @@ def parse_logs(log_file_lines):
             continue
 
 
-
-        # TODO: save results over time for statistics
-
-
 def read_new_lines(filepath, last_read_position):
     """
     Reads new lines from the file that were added after the last_read_position.
@@ -365,6 +361,12 @@ def save_server_stats(save_file_path):
 
         server_status['last_write_time'] = datetime.datetime.now()
 
+        csv_line = current_date.strftime("%m-%d-%Y") + ',' + current_time.strftime("%H:%M:%S") + ',' +\
+            str(num_players_in_server) + ',' + str(min_ping) + ',' + str(max_ping) + ',' + str(average_ping) + '\n'
+
+        with open(save_file_path, "a") as csv_file:
+            csv_file.write(csv_line)
+
         print(save_file_path)
         print(current_date, current_time, num_players_in_server, min_ping, max_ping, average_ping, sep=',')
         print('\n')
@@ -372,10 +374,12 @@ def save_server_stats(save_file_path):
     else:
         pass
 
+
 def main():
 
     try:
         log_file_path = sys.argv[1]
+        stats_data_path = sys.argv[2]
         server_log_lines = open(log_file_path, 'r', errors='replace')
         parse_logs(server_log_lines)
         last_read_position_by_size = os.path.getsize(log_file_path)
@@ -384,7 +388,7 @@ def main():
             last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
             parse_logs(new_lines)
             print_output()
-            save_server_stats('mypath/file.csv')
+            save_server_stats(stats_data_path)
             time.sleep(1)
     except IndexError:
         print("No file path was given. Quitting...")
