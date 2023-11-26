@@ -31,8 +31,6 @@ server_status = {
 }
 
 
-
-
 def load_world(log_file_line):
     server_status['loading_world_flag'] = 1
 
@@ -46,12 +44,18 @@ def load_world(log_file_line):
         server_status['world_being_loaded'] = 'World loading seemed to fail.'
 
 
-def set_current_world():
-    server_status['loading_world_flag'] = 0
-    server_status['current_world'] = server_status['world_being_loaded']
-    server_status['world_being_loaded'] = 'None'
-    server_status['world_start_time_ms'] = time.time()
-    server_status['world_start_time'] = datetime.datetime.now()
+def set_current_world(loading_flag):
+    if loading_flag == 1:
+        server_status['loading_world_flag'] = 0
+        server_status['current_world'] = server_status['world_being_loaded']
+        server_status['world_being_loaded'] = 'None'
+        server_status['world_start_time_ms'] = time.time()
+        server_status['world_start_time'] = datetime.datetime.now()
+    # This happens if someone votes for the same map, it only says world loaded and doesnt show the map name
+    elif loading_flag == 0:
+        # if this is the case we just want to reset the time.
+        server_status['world_start_time_ms'] = time.time()
+        server_status['world_start_time'] = datetime.datetime.now()
 
 
 def connect_player(log_file_line):
@@ -251,7 +255,6 @@ def check_for_renamed_player(log_file_line):
 
 
 def calculate_world_time_elapsed():
-    # TODO: if someone votes for the same map the clock still goes up, doesnt reset
     world_start_time = server_status['world_start_time']
     time_elapsed = datetime.datetime.now() - world_start_time
     seconds_elapsed = time_elapsed.days*24*60*60 + time_elapsed.seconds
@@ -277,8 +280,8 @@ def parse_logs(log_file_lines):
             load_world(line)
             continue
 
-        if line.startswith(WORLD_LOADED_PREFIX) and server_status['loading_world_flag'] == 1:
-            set_current_world()
+        if line.startswith(WORLD_LOADED_PREFIX):
+            set_current_world(server_status['loading_world_flag'])
             continue
 
         if line.endswith(CLIENT_CONNECTED_SUFFIX):
