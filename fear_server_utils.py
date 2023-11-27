@@ -144,6 +144,7 @@ def set_guid(log_file_line):
                 # if there is a valid guid, set it, otherwise set it to None
                 if guid_search:
                     player['guid'] = guid_search.group(1)
+                    update_player_stats(log_file_line)
                     break
                 else:
                     player['guid'] = 'NA'
@@ -312,7 +313,7 @@ def save_player(log_file_line, player_data_file_path):
 
 
 def update_player_stats(log_file_line):
-    game_name = get_game_name(log_file_line, GAME_NAME_CHAT_PATTERN)
+    game_name = get_game_name(log_file_line, GAME_NAME_PATTERN)
 
     for players in server_status['players_connected']:
         if players['game_name'] == game_name:
