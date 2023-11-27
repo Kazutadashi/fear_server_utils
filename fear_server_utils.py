@@ -424,7 +424,7 @@ def main():
     if len(sys.argv) <= 2:
         print('No arguments were given.')
         return -1
-    elif sys.argv[1] != '-n':
+    elif sys.argv[1] != '-n' and len(sys.argv) < 3:
         print('Required parameters missing. Did you mean to run with \'-n\'?')
     elif sys.argv[1] == '-n':
         if sys.argv[2]:
