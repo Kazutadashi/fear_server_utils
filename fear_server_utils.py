@@ -3,6 +3,7 @@ import time
 import datetime
 import os
 import sys
+import csv
 
 # prefix constants
 LOADING_WORLD_PREFIX = 'Loading world'
@@ -18,6 +19,7 @@ GAME_NAME_CHAT_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[CHAT\]:'
 GAME_NAME_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[(?:CHAT|INFO)\]:'
 GUID_PATTERN = r'guid:\s*(\S+)'
 CHAT_INDICATOR_PATTERN = r'\[CHAT\]:'
+IP_PATTERN = r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
 
 server_status = {
     'loading_world_flag': 0,
@@ -28,7 +30,10 @@ server_status = {
     'players_connected': [],
     'server_status_state': '[GOOD]',
     'desynced_players': set(),
-    'last_write_time': datetime.datetime.now()
+    'last_write_time': datetime.datetime.now(),
+    'player_data_save_path': '',
+    'log_file_path': '',
+    'server_stats_save_path': ''
 }
 
 
@@ -76,8 +81,8 @@ def connect_player(log_file_line):
         })
     else:
         for player in server_status['players_connected']:
-            if player['game_name'] == game_name: #  already in players list
-                return 0 # we hit a match can stop this function
+            if player['game_name'] == game_name:  # already in players list
+                return 0  # we hit a match can stop this function
 
         # if we did not hit a match, then this is a new player and we should add them
         server_status['players_connected'].append({
@@ -270,6 +275,42 @@ def calculate_world_time_elapsed():
     return formatted_time
 
 
+def save_player(log_file_line, player_data_file_path):
+
+    player_name = get_game_name(log_file_line, GAME_NAME_PATTERN)
+    player_details = [player for player in server_status['players_connected'] if player['game_name'] == player_name]
+    player_dict = player_details[0]
+
+    if not os.path.exists(player_data_file_path):
+        f = open(player_data_file_path, "w")
+        f.close()
+
+    file_size = os.stat(player_data_file_path).st_size
+
+    with open(player_data_file_path, newline='') as read_file:
+        reader = csv.reader(read_file)
+
+        # just add the next value because nothing is in this file
+        if file_size == 0:
+            pass
+        else:
+            for row in reader:
+
+                row_ip = re.search(IP_PATTERN, row[2]).group(1)
+                player_ip = re.search(IP_PATTERN, player_dict['ip_port']).group(1)
+
+                # Player already exists in file
+                if row[0] == player_dict['game_name'] and row_ip == player_ip and \
+                   row[4] == player_dict['site_name'] and row[6] == player_dict['guid']:
+                    return True  # player already in list, stop the function
+                # otherwise add player
+
+    with open(player_data_file_path, 'a') as save_file:
+        w = csv.DictWriter(save_file, player_dict.keys())
+        w.writerow(player_dict)
+    return False
+
+
 def update_player_stats(log_file_line):
     game_name = get_game_name(log_file_line, GAME_NAME_CHAT_PATTERN)
 
@@ -304,6 +345,8 @@ def parse_logs(log_file_lines):
 
         if re.search(GUID_INDICATOR_PATTERN, line):
             set_guid(line)
+            if sys.argv[1] != '-n':
+                save_player(line, server_status['player_data_save_path'])
             continue
 
         if line.endswith(CLIENT_DISCONNECTED_SUFFIX):
@@ -352,7 +395,8 @@ def save_server_stats(save_file_path):
         current_time = current_time_stamp.time()
         num_players_in_server = len(server_status['players_connected'])
         current_pings = [float(players['ping'][:-2]) for players in server_status['players_connected']]
-        if len(current_pings) == 0:
+        if (len(current_pings) ==
+                0):
             min_ping, max_ping, average_ping = 0, 0, 0
         else:
             min_ping = min(current_pings)
@@ -377,23 +421,53 @@ def save_server_stats(save_file_path):
 
 def main():
 
-    try:
-        log_file_path = sys.argv[1]
-        stats_data_path = sys.argv[2]
-        server_log_lines = open(log_file_path, 'r', errors='replace')
-        parse_logs(server_log_lines)
-        last_read_position_by_size = os.path.getsize(log_file_path)
-        server_log_lines.close()
-        while True:
-            last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
-            parse_logs(new_lines)
-            print_output()
-            save_server_stats(stats_data_path)
-            time.sleep(1)
-    except IndexError:
-        print("No file path was given. Quitting...")
-    except KeyboardInterrupt:
-        print("\nStopping...")
+    if len(sys.argv) <= 2:
+        print('No arguments were given.')
+        return -1
+    elif sys.argv[1] != '-n':
+        print('Required parameters missing. Did you mean to run with \'-n\'?')
+    elif sys.argv[1] == '-n':
+        if sys.argv[2]:
+            try:
+                server_status['log_file_path'] = sys.argv[2]
+                log_file_path = server_status['log_file_path']
+                server_log_lines = open(log_file_path, 'r', errors='replace')
+                parse_logs(server_log_lines)
+                last_read_position_by_size = os.path.getsize(log_file_path)
+                server_log_lines.close()
+                while True:
+                    last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
+                    parse_logs(new_lines)
+                    print_output()
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print("\nStopping...")
+            except FileNotFoundError:
+                print("One or more files were invalid or not found.")
+
+    else:
+        try:
+            server_status['log_file_path'] = sys.argv[1]
+            server_status['server_stats_save_path'] = sys.argv[2]
+            server_status['player_data_save_path'] = sys.argv[3]
+
+            log_file_path = server_status['log_file_path'] = sys.argv[1]
+            server_stats_save_path = server_status['server_stats_save_path'] = sys.argv[2]
+
+            server_log_lines = open(log_file_path, 'r', errors='replace')
+            parse_logs(server_log_lines)
+            last_read_position_by_size = os.path.getsize(log_file_path)
+            server_log_lines.close()
+            while True:
+                last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
+                parse_logs(new_lines)
+                print_output()
+                save_server_stats(server_stats_save_path)
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nStopping...")
+        except FileNotFoundError:
+            print("One or more files were invalid or not found.")
 
 
 if __name__ == '__main__':
