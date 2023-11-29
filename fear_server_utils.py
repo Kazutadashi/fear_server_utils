@@ -5,6 +5,8 @@ import os
 import sys
 import csv
 
+# Did this only affect class-branch?
+
 # prefix constants
 LOADING_WORLD_PREFIX = 'Loading world'
 WORLD_LOADED_PREFIX = 'World loaded'
