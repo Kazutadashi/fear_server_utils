@@ -26,22 +26,6 @@ IP_PATTERN = r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
 WORLD_NAME_PATTERN = r'\\(\w+)\n'
 
 
-server_status = {
-    'loading_world_flag': 0,
-    'world_being_loaded': 'none',
-    'world_start_time_ms': 0.00,
-    'world_start_time': datetime.datetime.now(),
-    'current_world': 'none',
-    'players_connected': [],
-    'server_status_state': '[GOOD]',
-    'desynced_players': set(),
-    'last_write_time': datetime.datetime.now(),
-    'player_data_save_path': '',
-    'log_file_path': '',
-    'server_stats_save_path': ''
-}
-
-
 class Server:
     def __init__(self):
         self.loading_world_flag: bool = False
@@ -63,7 +47,7 @@ class Server:
         for the world name. After finding it, it sets the world name to the match.
 
         Args:
-            log_file_line (str): Log file line generated from the UNIX FEAR server
+            log_file_line (str): Log file line generated from the UNIX FEAR server to determine the world
 
         Returns:
             str: The name of the world that was loaded by the server
@@ -87,85 +71,140 @@ class Server:
             self.world_being_loaded = 'FAIL_LOAD'
             raise ValueError(error_message)
 
+    def set_current_world(self) -> None:
+        """
+        Sets the current world of the server to the world that was loaded
 
-def set_current_world(loading_flag):
-    if loading_flag == 1:
-        server_status['loading_world_flag'] = 0
-        server_status['current_world'] = server_status['world_being_loaded']
-        server_status['world_being_loaded'] = 'None'
-        server_status['world_start_time_ms'] = time.time()
-        server_status['world_start_time'] = datetime.datetime.now()
-    # This happens if someone votes for the same map, it only says world loaded and doesnt show the map name
-    elif loading_flag == 0:
-        # if this is the case we just want to reset the time.
-        server_status['world_start_time_ms'] = time.time()
-        server_status['world_start_time'] = datetime.datetime.now()
+        Returns:
+            None: This function does not return anything
+        """
+        if self.loading_world_flag:
+            self.loading_world_flag = False
+            self.current_world = self.world_being_loaded
+            self.world_being_loaded = None
+            self.world_start_time_ms = time.time()
+            self.world_start_time = datetime.datetime.now()
 
+        # In cases where players vote for the same map, the "Loading world" prefix never shows up in the log
+        # which results in the method load_world never being called.
 
-def connect_player(log_file_line):
+        # This will create a situation where this method is called, but there is no loading flag set. To handle this
+        # We just assume that if this method is called while the loading flag is not set, it must be because
+        # players voted for the same map, which means we just need to reset the time.
 
-    player_details = log_file_line.split(']')  # splits the server output into columns
-    game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+        elif not self.loading_world_flag:
+            # if this is the case we just want to reset the time.
+            self.world_start_time_ms = time.time()
+            self.world_start_time = datetime.datetime.now()
 
-    if len(server_status['players_connected']) == 0:
-        server_status['players_connected'].append({
-            'game_name': game_name,
-            'connect_time': player_details[0][1:],
-            'ip_port': player_details[1][2:],
-            'ping': player_details[2][2:],
-            'site_name': '',
-            'sec2_cd_verified': '',
-            'guid': ''
-        })
-    else:
-        for player in server_status['players_connected']:
-            if player['game_name'] == game_name:  # already in players list
-                return 0  # we hit a match can stop this function
+    def connect_player(self, log_file_line: str) -> int:
+        """
+        Creates a dictionary object in player_connected that shows the players identity information.
+        This information is later used to produce output to stdout in the terminal window
 
-        # if we did not hit a match, then this is a new player and we should add them
-        server_status['players_connected'].append({
-            'game_name': game_name,
-            'connect_time': player_details[0][1:],
-            'ip_port': player_details[1][2:],
-            'ping': player_details[2][2:],
-            'site_name': '',
-            'sec2_cd_verified': '',
-            'guid': ''
-        })  # using [1:] here to remove the first '[' char
+        Args:
+            log_file_line (str): Log file line generated from the UNIX FEAR server to determine which player to connect
 
+        Returns:
+            int: 1 if a player was added, and 0 if they were not.
 
-def disconnect_player(log_file_line):
-    player = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
-    try:
-        # we basically just rebuild the list of dicts here with this comprehension, not including
-        # the one that needs to be removed.
-        server_status['players_connected'] =\
-            [player_dict for player_dict in server_status['players_connected'] if player_dict['game_name'] != player]
-    except ValueError as emsg:
-        # There seems to be a bug in the linux server software that allows a player to connect without
-        # showing up in the logs. Not sure why this happens.
-        print(f'[WARNING] Player {player} somehow disconnected without ever connecting.\n{emsg})')
+        """
+        # The log file contains columns separated by spaces. This line lets us split up the information
+        # from those columns into something usable for assignment.
+        player_details: List[str] = log_file_line.split(']')
+        game_name: str = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
 
+        # If there is no one in the server, add this new player.
+        if len(self.players_connected) == 0:
+            self.players_connected.append({
+                'game_name': game_name,
+                'connect_time': player_details[0][1:],
+                'ip_port': player_details[1][2:],
+                'ping': player_details[2][2:],
+                'site_name': None,
+                'sec2_cd_verified': None,
+                'guid': None
+            })
+        # If there are other people in the server, and the CLIENT_SUFFIX is found in the log, make sure
+        # the player connecting is not somehow someone already in the server. This prevents weird renaming bugs
+        else:
+            for player in self.players_connected:
+                if player['game_name'] == game_name:  # This means the player is already in the server.
+                    return 0
 
-def set_display_name(log_file_line):
+            # If we did not hit a match, then this is a new player and we should add them
+            self.players_connected.append({
+                'game_name': game_name,
+                'connect_time': player_details[0][1:],
+                'ip_port': player_details[1][2:],
+                'ping': player_details[2][2:],
+                'site_name': None,
+                'sec2_cd_verified': None,
+                'guid': None
+            })
+        return 1
 
-    game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
-    # if they have a valid game name
-    if game_name:
-        # search for that player in the list of player_dict objects
-        for player in server_status['players_connected']:
-            # when you find the match
-            if player['game_name'] == game_name:
-                # see what the display name is in the log file
-                site_name_match = re.search(DISPLAY_NAME_PATTERN, log_file_line)
-                # if there is a valid display name, set it, otherwise set it to None
-                if site_name_match:
-                    player['site_name'] = site_name_match.group(1)
-                    break
-                else:
-                    player['site_name'] = 'NA'
-    else:
-        print('No valid game name for this player. Something went wrong?')
+    def disconnect_player(self, log_file_line: str) -> None:
+        """
+        Disconnects a player from the server.
+
+        This function takes a log file line as input and extracts the game name using `get_game_name`.
+        It then rebuilds the `players_connected` list, excluding the player who is to be disconnected.
+        This effectively removes the player from the server's list of connected players. If the player
+        cannot be found (due to server software bugs), a warning is printed.
+
+        Args:
+            log_file_line (str):  Log file line generated from the UNIX FEAR server to
+            determine which player to disconnect
+
+        Returns:
+            None: This function does not return anything
+        """
+        game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+        try:
+            # We basically just rebuild the list of dicts here with this comprehension not including
+            # the one that needs to be removed, effectively removing it from the list.
+            self.players_connected =\
+                [player_dict for player_dict in self.players_connected if player_dict['game_name'] != game_name]
+        except ValueError as emsg:
+            # There seems to be a bug in the linux server software that allows a player to connect without
+            # showing up in the logs. Not sure why this happens.
+            print(f'[WARNING] Player {game_name} somehow disconnected without ever connecting.\n{emsg})')
+
+    def set_display_name(self, log_file_line: str) -> None:
+        """
+        After a player connects, a new line in the log file is generated that shows their display name. This method
+        captures that display name, and saves it to the player's dict object in players_connected. This allows
+        us to then show this on the terminal. Note that the log file calls it a display name, but it is actually
+        the name the player created their account with on the fear-community.org website. Because of this, we
+        refer to it as the site_name.
+
+        Args:
+            log_file_line: Log file line generated from the UNIX FEAR server to determine display name for the
+            connecting player.
+
+        Returns:
+            None: This function does not return anything
+
+        Raises:
+            ValueError: The display name line was found, but there was no game name associated with it.
+        """
+        game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+
+        if game_name:
+            # Search for that player in the list of player_dict objects
+            for player in self.players_connected:
+                if player['game_name'] == game_name:
+                    display_name = re.search(DISPLAY_NAME_PATTERN, log_file_line)
+                    if display_name:
+                        player['site_name'] = display_name.group(1)
+                        break
+                    else:
+                        player['site_name'] = None
+        else:
+            error_message = 'There is no game name associated with this player. Something went wrong' +\
+                f'Log file line: {log_file_line}'
+            raise ValueError(error_message)
 
 
 def set_guid(log_file_line):
