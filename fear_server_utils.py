@@ -4,8 +4,9 @@ import datetime
 import os
 import sys
 import csv
+from typing import List
+from typing import Optional
 
-# Did this only affect class-branch?
 
 # prefix constants
 LOADING_WORLD_PREFIX = 'Loading world'
@@ -22,6 +23,8 @@ GAME_NAME_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[(?:CHAT|INFO)\]:'
 GUID_PATTERN = r'guid:\s*(\S+)'
 CHAT_INDICATOR_PATTERN = r'\[CHAT\]:'
 IP_PATTERN = r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+WORLD_NAME_PATTERN = r'\\(\w+)\n'
+
 
 server_status = {
     'loading_world_flag': 0,
@@ -39,17 +42,50 @@ server_status = {
 }
 
 
-def load_world(log_file_line):
-    server_status['loading_world_flag'] = 1
+class Server:
+    def __init__(self):
+        self.loading_world_flag: bool = False
+        self.world_being_loaded: Optional[str] = None
+        self.world_start_time_ms: float = 0.00
+        self.world_start_time: datetime = datetime.datetime.now()
+        self.current_world: Optional[str] = None
+        self.players_connected: List[dict] = []
+        self.server_status_state: str = '[GOOD]'
+        self.de_synced_players: set = set()
+        self.last_write_time: datetime = datetime.datetime.now()
+        self.player_data_save_path: Optional[str] = None
+        self.log_file_path: Optional[str] = None
+        self.server_stats_save_path: Optional[str] = None
 
-    # Find the name of the world at the end of the loading worlds line
-    world_name_match = re.search(r"\\(\w+)\n", log_file_line)
+    def load_world(self, log_file_line: str) -> str:
+        """
+        Takes in a line from a server log file that starts with 'Loading world' and then scans that line
+        for the world name. After finding it, it sets the world name to the match.
 
-    # if there was a match, set this to the name of the world being loaded.
-    if world_name_match:
-        server_status['world_being_loaded'] = world_name_match.group(1)
-    else:
-        server_status['world_being_loaded'] = 'World loading seemed to fail.'
+        Args:
+            log_file_line (str): Log file line generated from the UNIX FEAR server
+
+        Returns:
+            str: The name of the world that was loaded by the server
+
+        Raises:
+            ValueError: The world failed to load or the wrong line was read somehow
+        """
+        self.loading_world_flag = True
+
+        # Find the name of the world at the end of the loading worlds line
+        world_name_match = re.search(WORLD_NAME_PATTERN, log_file_line)
+
+        # if there was a match, set this to the name of the world being loaded.
+        if world_name_match:
+            world_name = world_name_match.group(1)
+            self.world_being_loaded = world_name
+            return world_name
+        else:
+            error_message = (f"The load_world function attempted to load a world and failed." +
+                             f"\nLog file line:{log_file_line}")
+            self.world_being_loaded = 'FAIL_LOAD'
+            raise ValueError(error_message)
 
 
 def set_current_world(loading_flag):
