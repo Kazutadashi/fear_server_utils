@@ -313,18 +313,20 @@ class Server:
             player_lines = f'│{"":<{display_width}}│'
         else:
             for i, player in enumerate(players):
-                name = player['game_name']
-                connect_time = player['connect_time']
-                ip_port = player['ip_port']
-                ping = player['ping']
-                site_name = player['site_name']
-                sec2_cd_verified = player['sec2_cd_verified']
-                guid = player['guid']
+
+                # Because this is only printing values, we want to ensure that all values are strings
+                # some may be None if players circumvented the websites name requirement.
+                name = str(player['game_name'])
+                connect_time = str(player['connect_time'])
+                ip_port = str(player['ip_port'])
+                ping = str(player['ping'])
+                site_name = str(player['site_name'])
+                sec2_cd_verified = str(player['sec2_cd_verified'])
+                guid = str(player['guid'])
 
                 # Format the line for the current player
                 # :<8 and other numbers are used to keep things aligned with the f string formatting
-                # We cast name and site_name as str because they might be None type if nothing got set.
-                player_line = f"│{str(name):<22}{str(site_name):<33}{connect_time:<21}{str(ip_port):<23}{ping:<10}{sec2_cd_verified:<7}{guid:<33}│"
+                player_line = f"│{name:<22}{site_name:<33}{connect_time:<21}{ip_port:<23}{ping:<10}{sec2_cd_verified:<7}{guid:<33}│"
 
                 # Add newline character only if it's not the last player
                 if i < total_players - 1:
@@ -332,10 +334,10 @@ class Server:
 
                 player_lines += player_line
 
-        world_time_elapsed = self.calculate_world_time_elapsed()
+        world_time_elapsed = str(self.calculate_world_time_elapsed())
         world_start_time = str(self.world_start_time)
-        current_map = self.current_world
-        server_status_state = self.server_status_state
+        current_map = str(self.current_world)
+        server_status_state = str(self.server_status_state)
         player_count = str(len(self.players_connected)) + '/' + str(max_players)
 
         os.system('clear')
