@@ -448,6 +448,9 @@ class Server:
         player_details = [player for player in self.players_connected if player['game_name'] == player_name]
         player_dict = player_details[0]
 
+        if player_dict['site_name'] is None:
+            player_dict['site_name'] = 'NA'
+
         if not os.path.exists(player_data_file_path):
             f = open(player_data_file_path, "w")
             f.close()
@@ -469,7 +472,7 @@ class Server:
 
                     # Player already exists in file
                     if row[0] == player_dict['game_name'] and row_ip == player_ip and \
-                       row[4] == player_dict['site_name'] and row[6] == player_dict['guid']:
+                            (row[4] == player_dict['site_name']) and row[6] == player_dict['guid']:
                         return True  # player already in list, stop the function
                     # otherwise add player
 
