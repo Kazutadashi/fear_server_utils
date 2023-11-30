@@ -4,7 +4,7 @@ import datetime
 import os
 import sys
 import csv
-from typing import List, Tuple, Any
+from typing import List
 from typing import Optional
 from typing import TextIO
 
@@ -209,7 +209,7 @@ class Server:
     def set_guid(self, log_file_line: str) -> None:
         """
         Each player should be assigned a GUID, and there should be a log file indicated what the GUID is for
-        each player that connected. This function assigned that value to the player inside of the players_connected
+        each player that connected. This function assigned that value to the player inside the players_connected
         dict so that we have a record of that player's GUID.
 
         Args:
@@ -370,13 +370,14 @@ class Server:
 
         for players in self.players_connected:
             player_connect_time: datetime = players['connect_time']
-            formatted_player_connect_time: datetime = datetime.datetime.strptime(player_connect_time, '%Y-%m-%d %H:%M:%S')
+            formatted_player_connect_time: datetime =\
+                datetime.datetime.strptime(player_connect_time, '%Y-%m-%d %H:%M:%S')
             current_time: datetime = datetime.datetime.now()
 
             time_difference: datetime = current_time - formatted_player_connect_time
             difference_in_seconds: float = time_difference.days*24*60*60 + time_difference.seconds
 
-            # If the player has been in the server for 12 hours, assume theyre bugged
+            # If the player has been in the server for 12 hours, assume they're bugged
             if difference_in_seconds >= 43200:
                 self.disconnect_player(log_file_line)
 
@@ -629,7 +630,8 @@ def main() -> int:
                 last_read_position_by_size = os.path.getsize(log_file_path)
                 server_log_lines.close()
                 while True:
-                    last_read_position_by_size, new_lines = fear_server.read_new_lines(log_file_path, last_read_position_by_size)
+                    last_read_position_by_size, new_lines =\
+                        fear_server.read_new_lines(log_file_path, last_read_position_by_size)
                     fear_server.parse_logs(new_lines)
                     fear_server.print_output()
                     time.sleep(1)
@@ -654,7 +656,8 @@ def main() -> int:
             last_read_position_by_size = os.path.getsize(log_file_path)
             server_log_lines.close()
             while True:
-                last_read_position_by_size, new_lines = fear_server.read_new_lines(log_file_path, last_read_position_by_size)
+                last_read_position_by_size, new_lines =\
+                    fear_server.read_new_lines(log_file_path, last_read_position_by_size)
                 fear_server.parse_logs(new_lines)
                 fear_server.print_output()
                 fear_server.save_server_stats(server_stats_save_path)
