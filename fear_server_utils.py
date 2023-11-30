@@ -4,9 +4,9 @@ import datetime
 import os
 import sys
 import csv
-from typing import List
+from typing import List, Tuple, Any
 from typing import Optional
-
+from typing import TextIO
 
 # prefix constants
 LOADING_WORLD_PREFIX = 'Loading world'
@@ -231,7 +231,7 @@ class Server:
                     guid_search = re.search(GUID_PATTERN, log_file_line)
                     if guid_search:
                         player['guid'] = guid_search.group(1)
-                        update_player_stats(log_file_line)
+                        self.update_player_stats(log_file_line)
                         break
                     else:
                         player['guid'] = None
@@ -327,7 +327,7 @@ class Server:
 
                 player_lines += player_line
 
-        world_time_elapsed = calculate_world_time_elapsed()
+        world_time_elapsed = self.calculate_world_time_elapsed()
         world_start_time = str(self.world_start_time)
         current_map = self.current_world
         server_status_state = self.server_status_state
@@ -336,20 +336,20 @@ class Server:
         os.system('clear')
 
         print(f"""
-    ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-    │{'Server Status: ' + server_status_state:<{display_width}}│
-    ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-    │{'Current Map: ' + current_map:<{display_width}}│
-    │{'Map Start Time: ' + world_start_time:<{display_width}}│
-    │{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
-    │{'Players: ' + player_count:<{display_width}}│
-    │                                                                                                                                                     │ 
-    │Player Details                                                                                                                                       │
-    ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-    │Name                  Site Name                        Connect Time         IP:Port                Ping      SEC2   GUID                             │
-    ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-    {player_lines}
-    └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│{'Server Status: ' + server_status_state:<{display_width}}│
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│{'Current Map: ' + current_map:<{display_width}}│
+│{'Map Start Time: ' + world_start_time:<{display_width}}│
+│{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
+│{'Players: ' + player_count:<{display_width}}│
+│                                                                                                                                                     │ 
+│Player Details                                                                                                                                       │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│Name                  Site Name                        Connect Time         IP:Port                Ping      SEC2   GUID                             │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+{player_lines}
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
         \n""")
 
     def check_bugged_players(self, log_file_line: str) -> None:
@@ -409,162 +409,210 @@ class Server:
             self.server_status_state = '[WARNING] Unlisted Player(s) In Server!'
             self.de_synced_players.add(game_name)
 
+    def calculate_world_time_elapsed(self) -> str:
+        """
+        Uses the current time to calculate how much time has passed in the current map. If no players are in the game
+        the timer will go up forever, as the map does not change with no players in the server.
 
-def calculate_world_time_elapsed():
-    world_start_time = server_status['world_start_time']
-    time_elapsed = datetime.datetime.now() - world_start_time
-    seconds_elapsed = time_elapsed.days*24*60*60 + time_elapsed.seconds
-    world_time_minutes_passed = int(seconds_elapsed // 60)
-    world_time_seconds_passed = int(seconds_elapsed % 60)
-    formatted_time = '{:02}:{:02}'.format(world_time_minutes_passed, world_time_seconds_passed)
-    return formatted_time
+        Returns:
+            str: A nicely formatted time string in the format minutes:seconds to pass to the print_output method
 
+        """
+        world_start_time = self.world_start_time
+        time_elapsed = datetime.datetime.now() - world_start_time
+        seconds_elapsed = time_elapsed.days*24*60*60 + time_elapsed.seconds
+        world_time_minutes_passed = int(seconds_elapsed // 60)
+        world_time_seconds_passed = int(seconds_elapsed % 60)
+        formatted_time = '{:02}:{:02}'.format(world_time_minutes_passed, world_time_seconds_passed)
+        return formatted_time
 
-def save_player(log_file_line, player_data_file_path):
+    def save_player(self, log_file_line: str, player_data_file_path: str) -> bool:
+        """
+        Whenever a new player enters the server, check a locally stored CSV file to see if they already exist in the
+        file. If they don't add all of that player's information that was stored in the players connected dictionary
+        as a new row in the CSV file. The function checks the game_name, ip, guid, and display_name. If any one
+        of these 4 values is different, we treat this a new player.
 
-    player_name = get_game_name(log_file_line, GAME_NAME_PATTERN)
-    player_details = [player for player in server_status['players_connected'] if player['game_name'] == player_name]
-    player_dict = player_details[0]
+        Args:
+            log_file_line (str): Log file line generated from the UNIX FEAR server to extract a game name from
+            player_data_file_path (str): The path to where the CSV file is saved.
 
-    if not os.path.exists(player_data_file_path):
-        f = open(player_data_file_path, "w")
-        f.close()
+        Returns:
+            bool: True if the player was already in the CSV file, False if not
+        """
 
-    file_size = os.stat(player_data_file_path).st_size
+        player_name = self.get_game_name(log_file_line, GAME_NAME_PATTERN)
+        player_details = [player for player in self.players_connected if player['game_name'] == player_name]
+        player_dict = player_details[0]
 
-    with open(player_data_file_path, newline='') as read_file:
-        reader = csv.reader(read_file)
+        if not os.path.exists(player_data_file_path):
+            f = open(player_data_file_path, "w")
+            f.close()
 
-        # just add the next value because nothing is in this file
-        if file_size == 0:
+        # Used to see if the file is empty or not. If the file is empty, then don't check to see if a player is in it.
+        file_size = os.stat(player_data_file_path).st_size
+
+        with open(player_data_file_path, newline='') as read_file:
+            reader = csv.reader(read_file)
+
+            # Just add the next value because nothing is in this file
+            if file_size == 0:
+                pass
+            else:
+                for row in reader:
+
+                    row_ip = re.search(IP_PATTERN, row[2]).group(1)
+                    player_ip = re.search(IP_PATTERN, player_dict['ip_port']).group(1)
+
+                    # Player already exists in file
+                    if row[0] == player_dict['game_name'] and row_ip == player_ip and \
+                       row[4] == player_dict['site_name'] and row[6] == player_dict['guid']:
+                        return True  # player already in list, stop the function
+                    # otherwise add player
+
+        with open(player_data_file_path, 'a') as save_file:
+            w = csv.DictWriter(save_file, player_dict.keys())
+            w.writerow(player_dict)
+        return False
+
+    def update_player_stats(self, log_file_line: str) -> None:
+        """
+        Because there is no way of knowing the player's current status in the server (such as ping, kills, deaths etc.)
+        We need to be clever on how we "update" their status. Log file lines with CHAT or INFO will contain
+        information about the player that we can use to update their current status. This function updates the status
+        of the player when one of these lines is encountered. For now the only thing we update is the player's ping.
+
+        Args:
+            log_file_line (str): Log file line generated from the UNIX FEAR server to extract a game name from the log
+            line.
+
+        Returns:
+            None: This function does not return anything
+
+        """
+        game_name = self.get_game_name(log_file_line, GAME_NAME_PATTERN)
+
+        for players in self.players_connected:
+            if players['game_name'] == game_name:
+                # Log files are split into columns separate by brackets. This helps us isolate the ping.
+                player_details = log_file_line.split(']')
+                players['ping'] = player_details[2][2:]
+
+    def parse_logs(self, log_file_lines: List[str] | TextIO) -> None:
+        """
+        This takes in a log file generated from the UNIX FEAR server, and goes line by line to update the current
+        status of the server.
+
+        Args:
+            log_file_lines (TextIO): All lines from the log file.
+
+        Returns:
+            None: This function does not return anything.
+
+        """
+        for line in log_file_lines:
+
+            if line.startswith(LOADING_WORLD_PREFIX):
+                self.load_world(line)
+                continue
+
+            if line.startswith(WORLD_LOADED_PREFIX):
+                self.set_current_world()
+                continue
+
+            if line.endswith(CLIENT_CONNECTED_SUFFIX):
+                self.connect_player(line)
+                continue
+
+            if re.search(DISPLAY_NAME_INDICATOR_PATTERN, line):
+                self.set_display_name(line)
+                continue
+
+            if line.endswith(PASSED_SEC2_CD_KEY_CHECK_SUFFIX):
+                self.set_sec2_success_flag(line)
+                continue
+
+            if re.search(GUID_INDICATOR_PATTERN, line):
+                self.set_guid(line)
+                if sys.argv[1] != '-n':
+                    self.save_player(line, self.player_data_save_path)
+                continue
+
+            if line.endswith(CLIENT_DISCONNECTED_SUFFIX):
+                self.check_for_renamed_player(line)
+                self.check_bugged_players(line)
+                self.disconnect_player(line)
+                continue
+
+            if re.search(CHAT_INDICATOR_PATTERN, line):
+                self.check_for_renamed_player(line)
+                self.check_bugged_players(line)
+                self.update_player_stats(line)
+                continue
+
+    @staticmethod
+    def read_new_lines(filepath: str, last_read_position: int) -> tuple[int, list[str]]:
+        """
+        Reads new lines from the file that were added after the last_read_position.
+
+        Args:
+            filepath (str): Path to the file.
+            last_read_position (int): The position in the file from where to start reading.
+
+        Returns:
+            tuple: A tuple containing the updated last_read_position and a list of new lines.
+        """
+        new_lines = []
+        current_size = os.path.getsize(filepath)
+
+        if current_size > last_read_position:
+            with open(filepath, 'r', errors='replace') as file:
+                file.seek(last_read_position)
+                new_lines = file.readlines()
+                last_read_position = current_size
+
+        return last_read_position, new_lines
+
+    def save_server_stats(self, save_file_path: str) -> None:
+        """
+        Saves the date, the time, ping information, and the current number of players in the server every 30 seconds.
+
+        Args:
+            save_file_path: Location to save the data in CSV format
+
+        Returns:
+            None: This function does not return anything.
+
+        """
+
+        current_time_stamp: datetime = datetime.datetime.now()
+
+        if (current_time_stamp - self.last_write_time).total_seconds() >= 30:
+            current_date = current_time_stamp.date()
+            current_time = current_time_stamp.time()
+            num_players_in_server = len(self.players_connected)
+            current_pings = [float(players['ping'][:-2]) for players in self.players_connected]
+            if len(current_pings) == 0:
+                min_ping, max_ping, average_ping = 0, 0, 0
+            else:
+                min_ping = min(current_pings)
+                max_ping = max(current_pings)
+                average_ping = sum(current_pings) / len(current_pings)
+
+            self.last_write_time = datetime.datetime.now()
+
+            csv_line = current_date.strftime("%m-%d-%Y") + ',' + current_time.strftime("%H:%M:%S") + ',' +\
+                str(num_players_in_server) + ',' + str(min_ping) + ',' + str(max_ping) + ',' + str(average_ping) + '\n'
+
+            with open(save_file_path, "a") as csv_file:
+                csv_file.write(csv_line)
+        else:
             pass
-        else:
-            for row in reader:
-
-                row_ip = re.search(IP_PATTERN, row[2]).group(1)
-                player_ip = re.search(IP_PATTERN, player_dict['ip_port']).group(1)
-
-                # Player already exists in file
-                if row[0] == player_dict['game_name'] and row_ip == player_ip and \
-                   row[4] == player_dict['site_name'] and row[6] == player_dict['guid']:
-                    return True  # player already in list, stop the function
-                # otherwise add player
-
-    with open(player_data_file_path, 'a') as save_file:
-        w = csv.DictWriter(save_file, player_dict.keys())
-        w.writerow(player_dict)
-    return False
 
 
-def update_player_stats(log_file_line):
-    game_name = get_game_name(log_file_line, GAME_NAME_PATTERN)
+def main() -> int:
 
-    for players in server_status['players_connected']:
-        if players['game_name'] == game_name:
-            player_details = log_file_line.split(']')
-            players['ping'] = player_details[2][2:]
-
-
-def parse_logs(log_file_lines):
-    for line in log_file_lines:
-
-        if line.startswith(LOADING_WORLD_PREFIX):
-            load_world(line)
-            continue
-
-        if line.startswith(WORLD_LOADED_PREFIX):
-            set_current_world(server_status['loading_world_flag'])
-            continue
-
-        if line.endswith(CLIENT_CONNECTED_SUFFIX):
-            connect_player(line)
-            continue
-
-        if re.search(DISPLAY_NAME_INDICATOR_PATTERN, line):
-            set_display_name(line)
-            continue
-
-        if line.endswith(PASSED_SEC2_CD_KEY_CHECK_SUFFIX):
-            set_sec2_success_flag(line)
-            continue
-
-        if re.search(GUID_INDICATOR_PATTERN, line):
-            set_guid(line)
-            if sys.argv[1] != '-n':
-                save_player(line, server_status['player_data_save_path'])
-            continue
-
-        if line.endswith(CLIENT_DISCONNECTED_SUFFIX):
-            check_for_renamed_player(line)
-            check_bugged_players(line)
-            disconnect_player(line)
-            continue
-
-        if re.search(CHAT_INDICATOR_PATTERN, line):
-            check_for_renamed_player(line)
-            check_bugged_players(line)
-            update_player_stats(line)
-            continue
-
-
-def read_new_lines(filepath, last_read_position):
-    """
-    Reads new lines from the file that were added after the last_read_position.
-
-    Args:
-    filepath (str): Path to the file.
-    last_read_position (int): The position in the file from where to start reading.
-
-    Returns:
-    tuple: A tuple containing the updated last_read_position and a list of new lines.
-    """
-    new_lines = []
-    current_size = os.path.getsize(filepath)
-
-    if current_size > last_read_position:
-        with open(filepath, 'r', errors='replace') as file:
-            file.seek(last_read_position)
-            new_lines = file.readlines()
-            last_read_position = current_size
-
-    return last_read_position, new_lines
-
-
-def save_server_stats(save_file_path):
-    # takes a snapshot of some player statistics every 30 seconds so we can see when the server is popular
-
-    current_time_stamp = datetime.datetime.now()
-
-    if (current_time_stamp - server_status['last_write_time']).total_seconds() >= 30:
-        current_date = current_time_stamp.date()
-        current_time = current_time_stamp.time()
-        num_players_in_server = len(server_status['players_connected'])
-        current_pings = [float(players['ping'][:-2]) for players in server_status['players_connected']]
-        if (len(current_pings) ==
-                0):
-            min_ping, max_ping, average_ping = 0, 0, 0
-        else:
-            min_ping = min(current_pings)
-            max_ping = max(current_pings)
-            average_ping = sum(current_pings) / len(current_pings)
-
-        server_status['last_write_time'] = datetime.datetime.now()
-
-        csv_line = current_date.strftime("%m-%d-%Y") + ',' + current_time.strftime("%H:%M:%S") + ',' +\
-            str(num_players_in_server) + ',' + str(min_ping) + ',' + str(max_ping) + ',' + str(average_ping) + '\n'
-
-        with open(save_file_path, "a") as csv_file:
-            csv_file.write(csv_line)
-
-        # print(save_file_path)
-        # print(current_date, current_time, num_players_in_server, min_ping, max_ping, average_ping, sep=',')
-        # print('\n')
-        # time.sleep(5)
-    else:
-        pass
-
-
-def main():
+    fear_server: Server = Server()
 
     if len(sys.argv) <= 2:
         print('No arguments were given.')
@@ -574,40 +622,42 @@ def main():
     elif sys.argv[1] == '-n':
         if sys.argv[2]:
             try:
-                server_status['log_file_path'] = sys.argv[2]
-                log_file_path = server_status['log_file_path']
+                fear_server.log_file_path = sys.argv[2]
+                log_file_path = fear_server.log_file_path
                 server_log_lines = open(log_file_path, 'r', errors='replace')
-                parse_logs(server_log_lines)
+                fear_server.parse_logs(server_log_lines)
                 last_read_position_by_size = os.path.getsize(log_file_path)
                 server_log_lines.close()
                 while True:
-                    last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
-                    parse_logs(new_lines)
-                    print_output()
+                    last_read_position_by_size, new_lines = fear_server.read_new_lines(log_file_path, last_read_position_by_size)
+                    fear_server.parse_logs(new_lines)
+                    fear_server.print_output()
                     time.sleep(1)
             except KeyboardInterrupt:
                 print("\nStopping...")
             except FileNotFoundError:
                 print("One or more files were invalid or not found.")
+            except ValueError as ve:
+                print(ve)
 
     else:
         try:
-            server_status['log_file_path'] = sys.argv[1]
-            server_status['server_stats_save_path'] = sys.argv[2]
-            server_status['player_data_save_path'] = sys.argv[3]
+            fear_server.log_file_path = sys.argv[1]
+            fear_server.server_stats_save_path = sys.argv[2]
+            fear_server.player_data_save_path = sys.argv[3]
 
-            log_file_path = server_status['log_file_path'] = sys.argv[1]
-            server_stats_save_path = server_status['server_stats_save_path'] = sys.argv[2]
+            log_file_path = fear_server.log_file_path = sys.argv[1]
+            server_stats_save_path = fear_server.server_stats_save_path = sys.argv[2]
 
             server_log_lines = open(log_file_path, 'r', errors='replace')
-            parse_logs(server_log_lines)
+            fear_server.parse_logs(server_log_lines)
             last_read_position_by_size = os.path.getsize(log_file_path)
             server_log_lines.close()
             while True:
-                last_read_position_by_size, new_lines = read_new_lines(log_file_path, last_read_position_by_size)
-                parse_logs(new_lines)
-                print_output()
-                save_server_stats(server_stats_save_path)
+                last_read_position_by_size, new_lines = fear_server.read_new_lines(log_file_path, last_read_position_by_size)
+                fear_server.parse_logs(new_lines)
+                fear_server.print_output()
+                fear_server.save_server_stats(server_stats_save_path)
                 time.sleep(1)
         except KeyboardInterrupt:
             print("\nStopping...")
