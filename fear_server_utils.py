@@ -8,13 +8,15 @@ from typing import List
 from typing import Optional
 from typing import TextIO
 
-# prefix constants
+# Prefix and suffix constants
 LOADING_WORLD_PREFIX = 'Loading world'
 WORLD_LOADED_PREFIX = 'World loaded'
 CLIENT_CONNECTED_SUFFIX = 'Client connected\n'
 CLIENT_DISCONNECTED_SUFFIX = 'Client disconnected\n'
 PASSED_SEC2_CD_KEY_CHECK_SUFFIX = 'Client passed cd-key check [SEC2]\n'
 DISPLAY_NAME_INDICATOR_PATTERN = r'\[INFO\].*-- Display Name:'
+
+# Regex patterns
 GUID_INDICATOR_PATTERN = r'\[INFO\]: guid:'
 DISPLAY_NAME_PATTERN = r'-- Display Name:\s*(\S+)'
 GAME_NAME_INFO_PATTERN = r'\[((?:\[.*?\]|[^\[\]])*)\]\s*\[INFO\]:'
