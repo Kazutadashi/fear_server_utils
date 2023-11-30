@@ -112,7 +112,7 @@ class Server:
         # The log file contains columns separated by spaces. This line lets us split up the information
         # from those columns into something usable for assignment.
         player_details: List[str] = log_file_line.split(']')
-        game_name: str = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+        game_name: str = self.get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
 
         # If there is no one in the server, add this new player.
         if len(self.players_connected) == 0:
@@ -160,7 +160,7 @@ class Server:
         Returns:
             None: This function does not return anything
         """
-        game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+        game_name = self.get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
         try:
             # We basically just rebuild the list of dicts here with this comprehension not including
             # the one that needs to be removed, effectively removing it from the list.
@@ -180,7 +180,7 @@ class Server:
         refer to it as the site_name.
 
         Args:
-            log_file_line: Log file line generated from the UNIX FEAR server to determine display name for the
+            log_file_line (str): Log file line generated from the UNIX FEAR server to determine display name for the
             connecting player.
 
         Returns:
@@ -189,7 +189,7 @@ class Server:
         Raises:
             ValueError: The display name line was found, but there was no game name associated with it.
         """
-        game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+        game_name = self.get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
 
         if game_name:
             # Search for that player in the list of player_dict objects
@@ -206,141 +206,208 @@ class Server:
                 f'Log file line: {log_file_line}'
             raise ValueError(error_message)
 
+    def set_guid(self, log_file_line: str) -> None:
+        """
+        Each player should be assigned a GUID, and there should be a log file indicated what the GUID is for
+        each player that connected. This function assigned that value to the player inside of the players_connected
+        dict so that we have a record of that player's GUID.
 
-def set_guid(log_file_line):
-    game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+        Args:
+            log_file_line (str): Log file line generated from the UNIX FEAR server to determine GUID for the
+            connecting player.
 
-    # if they have a valid game name
-    if game_name:
-        # search for that player in the list of player_dict objects
-        for player in server_status['players_connected']:
-            # when you find the match
-            if player['game_name'] == game_name:
-                # see what the guid is in the log file
-                guid_search = re.search(GUID_PATTERN, log_file_line)
-                # if there is a valid guid, set it, otherwise set it to None
-                if guid_search:
-                    player['guid'] = guid_search.group(1)
-                    update_player_stats(log_file_line)
+        Returns:
+            None: This function does not return anything
+
+        Raises
+            ValueError: If the line did not have any GUID on it, something went wrong.
+        """
+        game_name = self.get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+
+        if game_name:
+            # search for that player in the list of player_dict objects
+            for player in self.players_connected:
+                if player['game_name'] == game_name:
+                    guid_search = re.search(GUID_PATTERN, log_file_line)
+                    if guid_search:
+                        player['guid'] = guid_search.group(1)
+                        update_player_stats(log_file_line)
+                        break
+                    else:
+                        player['guid'] = None
+        else:
+            error_message = f'[WARNING] Unable to set guid for player: {game_name}' +\
+                f'\nLog file line: {log_file_line}'
+            raise ValueError(error_message)
+
+    def set_sec2_success_flag(self, log_file_line: str) -> None:
+        """
+        When this function runs it assumes that it is being called because a log file line had a SEC2 indicator.
+        Which means the player has verified their SEC2 security key.
+        This function then sets the value of the player's sec2 verification to True.
+        If this function does not get called, the player's verification stays as False.
+
+        Args:
+            log_file_line (str): Log file line generated from the UNIX FEAR server to determine if a player
+            has been authorized by SEC2.
+
+        Returns:
+            None: This function does not return anything
+
+        Raises:
+            ValueError: If there is a sec2 line, but no player name, something went wrong.
+        """
+
+        game_name = self.get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+
+        if game_name:
+            for player in self.players_connected:
+                if player['game_name'] == game_name:
+                    player['sec2_cd_verified'] = 'True'
                     break
-                else:
-                    player['guid'] = 'NA'
-    else:
-        print(f'[WARNING] Unable to set guid for player: {game_name}')
+        else:
+            error_message = f'[WARNING] Unable to set sec2 pass flag for player: {game_name}' +\
+                f'\nLog file line: {log_file_line}'
+            raise ValueError(error_message)
 
+    @staticmethod
+    def get_game_name(log_file_line, regex_pattern):
+        """
+        This functions extracts the player's "game name" or the name that shows in game from a log file line.
 
-def set_sec2_success_flag(log_file_line):
-    game_name = get_game_name(log_file_line, GAME_NAME_INFO_PATTERN)
+        Args:
+            log_file_line (str): Log file line generated from the UNIX FEAR server to extract a game name from
+            regex_pattern (str): If a specific Regex pattern is needed for a certain line, this can be specified here.
 
-    if game_name:
-        for player in server_status['players_connected']:
-            if player['game_name'] == game_name:
-                player['sec2_cd_verified'] = 'True'
-                break
-    else:
-        print(f'[WARNING] Unable to set sec2 pass flag for player: {game_name}')
+        Returns:
 
+        """
+        game_name = re.search(regex_pattern, log_file_line)
+        if game_name:
+            return game_name.group(1)
+        else:
+            return None
 
-def get_game_name(log_file_line, regex_pattern):
-    game_name = re.search(regex_pattern, log_file_line)
-    if game_name:
-        return game_name.group(1)
-    else:
-        return None
+    def print_output(self) -> None:
+        """
+        Print out all the information saved in the class attributes to make a nice display about the current
+        status of the server.
 
+        Returns:
+            None: This function does not return anything
 
-def print_output():
+        """
 
-    players = server_status['players_connected']
-    total_players = len(players)
-    player_lines = ""  # preparing a variable to add the print text later
-    max_players = 16
-    display_width = 149
+        players: List[dict] = self.players_connected
+        total_players: int = len(players)
+        player_lines: str = ""  # Preparing a variable to add the print text later
+        max_players: int = 16  # This is hardcoded because there is no way to determine this. Max is 16 for most servers
+        display_width: int = 149
 
-    if total_players == 0:
-        player_lines = f'│{"":<{display_width}}│'
-    else:
-        for i, player in enumerate(players):
-            name = player['game_name']
-            connect_time = player['connect_time']
-            ip_port = player['ip_port']
-            ping = player['ping']
-            site_name = player['site_name']
-            sec2_cd_verified = player['sec2_cd_verified']
-            guid = player['guid']
+        # This block is basically building up a string that shows the connected players to display them in the box.
+        if total_players == 0:
+            player_lines = f'│{"":<{display_width}}│'
+        else:
+            for i, player in enumerate(players):
+                name = player['game_name']
+                connect_time = player['connect_time']
+                ip_port = player['ip_port']
+                ping = player['ping']
+                site_name = player['site_name']
+                sec2_cd_verified = player['sec2_cd_verified']
+                guid = player['guid']
 
-            # Format the line for the current player
-            # :<8 and other numbers are used to keep things aligned with the f string formatting
-            player_line = f"│{name:<22}{site_name:<33}{connect_time:<21}{ip_port:<23}{ping:<10}{sec2_cd_verified:<7}{guid:<33}│"
+                # Format the line for the current player
+                # :<8 and other numbers are used to keep things aligned with the f string formatting
+                player_line = f"│{name:<22}{site_name:<33}{connect_time:<21}{ip_port:<23}{ping:<10}{sec2_cd_verified:<7}{guid:<33}│"
 
-            # Add newline character only if it's not the last player
-            if i < total_players - 1:
-                player_line += "\n"
+                # Add newline character only if it's not the last player
+                if i < total_players - 1:
+                    player_line += "\n"
 
-            player_lines += player_line
+                player_lines += player_line
 
-    world_time_elapsed = calculate_world_time_elapsed()
-    world_start_time = str(server_status['world_start_time'])
-    current_map = server_status['current_world']
-    server_status_state = server_status['server_status_state']
-    player_count = str(len(server_status['players_connected'])) + '/' + str(max_players)
+        world_time_elapsed = calculate_world_time_elapsed()
+        world_start_time = str(self.world_start_time)
+        current_map = self.current_world
+        server_status_state = self.server_status_state
+        player_count = str(len(self.players_connected)) + '/' + str(max_players)
 
-    os.system('clear')
+        os.system('clear')
 
-    print(f"""
-┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│{'Server Status: ' + server_status_state:<{display_width}}│
-├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│{'Current Map: ' + current_map:<{display_width}}│
-│{'Map Start Time: ' + world_start_time:<{display_width}}│
-│{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
-│{'Players: ' + player_count:<{display_width}}│
-│                                                                                                                                                     │ 
-│Player Details                                                                                                                                       │
-├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│Name                  Site Name                        Connect Time         IP:Port                Ping      SEC2   GUID                             │
-├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-{player_lines}
-└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-    \n""")
+        print(f"""
+    ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+    │{'Server Status: ' + server_status_state:<{display_width}}│
+    ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    │{'Current Map: ' + current_map:<{display_width}}│
+    │{'Map Start Time: ' + world_start_time:<{display_width}}│
+    │{'Map Time Elapsed: ' + world_time_elapsed:<{display_width}}│ 
+    │{'Players: ' + player_count:<{display_width}}│
+    │                                                                                                                                                     │ 
+    │Player Details                                                                                                                                       │
+    ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    │Name                  Site Name                        Connect Time         IP:Port                Ping      SEC2   GUID                             │
+    ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    {player_lines}
+    └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+        \n""")
 
+    def check_bugged_players(self, log_file_line: str) -> None:
+        """
+        There is a bug with the linux server application where it will sometimes not log
+        the client disconnect message. Possibly if the player crashes or alt f4. The exact reason isn't know
+        but this causes there to be a player who is ALWAYS on the server even when they aren't
+        we need to delete this player so that they don't keep messing up stats for historical data
+        for now the only solution I can think is to delete them from the players list after 10 hours or something
 
-def check_bugged_players(log_file_line):
-    # there is a bug with the linux server application where it will sometimes not log
-    # the client disconnect message. Possibly if the player crashes or alt f4. The exact reason isn't know
-    # but this causes there to be a player who is ALWAYS on the server even when they aren't
-    # we need to delete this player so they dont keep messing up stats for historical data
-    # for now the only solution I can think is to delete them from the players list after 10 hours or something
+        Args:
+            log_file_line (str): Log file line generated from the UNIX FEAR server to extract a game name from the log
+            line.
 
-    for players in server_status['players_connected']:
-        player_connect_time = players['connect_time']
-        formatted_player_connect_time = datetime.datetime.strptime(player_connect_time, '%Y-%m-%d %H:%M:%S')
-        current_time = datetime.datetime.now()
+        Returns:
+            None: This function does not return anything
+        """
 
-        time_difference = current_time - formatted_player_connect_time
-        difference_in_seconds = time_difference.days*24*60*60 + time_difference.seconds
-        if difference_in_seconds >= 43200:  # if the player has been in the server for 12 hours, assume theyre bugged
-            disconnect_player(log_file_line)
+        for players in self.players_connected:
+            player_connect_time: datetime = players['connect_time']
+            formatted_player_connect_time: datetime = datetime.datetime.strptime(player_connect_time, '%Y-%m-%d %H:%M:%S')
+            current_time: datetime = datetime.datetime.now()
 
+            time_difference: datetime = current_time - formatted_player_connect_time
+            difference_in_seconds: float = time_difference.days*24*60*60 + time_difference.seconds
 
-def check_for_renamed_player(log_file_line):
-    # the server does not log when people change their nicks in game
-    # This means that if they change their nick, then leave the server
-    # the original name for that player will remain connected in the player list
-    # even though they are not in the server. I dont know a way around this for now, but
-    # this at least tells us when its happening
+            # If the player has been in the server for 12 hours, assume theyre bugged
+            if difference_in_seconds >= 43200:
+                self.disconnect_player(log_file_line)
 
-    list_of_apparent_connected_players = []
-    for players in server_status['players_connected']:
-        list_of_apparent_connected_players.append(players['game_name'])
+    def check_for_renamed_player(self, log_file_line: str) -> None:
+        """
+        The server does not log when people change their nickname in game
+        This means that if they change their nickname, then leave the server,
+        the original name for that player will appear to be connected to the server still because
+        the disconnect method was never called for the original nickname,
+        even though they are not in the server. I don't know a way around this for now, but
+        this at least tells us when it's happening
 
-    game_name = get_game_name(log_file_line, GAME_NAME_PATTERN)
+        Args:
+            log_file_line (str): Log file line generated from the UNIX FEAR server to extract a game name from the log
+            line.
 
-    # something is wrong if we have a name thats not connected
-    # if the name is None we dont care, so we check if the game_name is a truthy value
-    if game_name not in list_of_apparent_connected_players and game_name:
-        server_status['server_status_state'] = '[WARNING] Unlisted Player(s) In Server!'
-        server_status['desynced_players'].add(game_name)
+        Returns:
+            None: This function does not return anything
+        """
+
+        list_of_apparent_connected_players = []
+        for players in self.players_connected:
+            list_of_apparent_connected_players.append(players['game_name'])
+
+        game_name = self.get_game_name(log_file_line, GAME_NAME_PATTERN)
+
+        # Something is wrong if we have a name that's not connected.
+        # If the name is None we don't care, so we check if the game_name is a truthy value
+        if game_name not in list_of_apparent_connected_players and game_name:
+            self.server_status_state = '[WARNING] Unlisted Player(s) In Server!'
+            self.de_synced_players.add(game_name)
 
 
 def calculate_world_time_elapsed():
