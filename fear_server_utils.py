@@ -7,6 +7,7 @@ import csv
 from typing import List
 from typing import Optional
 from typing import TextIO
+from typing import Union
 
 # Prefix and suffix constants
 LOADING_WORLD_PREFIX = 'Loading world'
@@ -504,7 +505,7 @@ class Server:
                 player_details = log_file_line.split(']')
                 players['ping'] = player_details[2][2:]
 
-    def parse_logs(self, log_file_lines: List[str] | TextIO) -> None:
+    def parse_logs(self, log_file_lines: Union[List[str], TextIO]) -> None:
         """
         This takes in a log file generated from the UNIX FEAR server, and goes line by line to update the current
         status of the server.
