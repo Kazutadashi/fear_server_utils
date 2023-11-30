@@ -323,7 +323,8 @@ class Server:
 
                 # Format the line for the current player
                 # :<8 and other numbers are used to keep things aligned with the f string formatting
-                player_line = f"│{name:<22}{site_name:<33}{connect_time:<21}{ip_port:<23}{ping:<10}{sec2_cd_verified:<7}{guid:<33}│"
+                # We cast name and site_name as str because they might be None type if nothing got set.
+                player_line = f"│{str(name):<22}{str(site_name):<33}{connect_time:<21}{str(ip_port):<23}{ping:<10}{sec2_cd_verified:<7}{guid:<33}│"
 
                 # Add newline character only if it's not the last player
                 if i < total_players - 1:
