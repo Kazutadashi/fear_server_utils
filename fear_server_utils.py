@@ -8,6 +8,7 @@ from typing import List
 from typing import Optional
 from typing import TextIO
 from typing import Union
+from typing import Tuple
 
 # Prefix and suffix constants
 LOADING_WORLD_PREFIX = 'Loading world'
@@ -558,7 +559,7 @@ class Server:
                 continue
 
     @staticmethod
-    def read_new_lines(filepath: str, last_read_position: int) -> tuple[int, List[str]]:
+    def read_new_lines(filepath: str, last_read_position: int) -> Tuple[int, List[str]]:
         """
         Reads new lines from the file that were added after the last_read_position.
 
