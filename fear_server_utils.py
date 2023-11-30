@@ -558,7 +558,7 @@ class Server:
                 continue
 
     @staticmethod
-    def read_new_lines(filepath: str, last_read_position: int) -> tuple[int, list[str]]:
+    def read_new_lines(filepath: str, last_read_position: int) -> tuple[int, List[str]]:
         """
         Reads new lines from the file that were added after the last_read_position.
 
