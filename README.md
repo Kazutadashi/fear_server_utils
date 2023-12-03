@@ -71,7 +71,7 @@ $ cat example_player.csv
 ## Additional Information
 ### tmux
 It is highly recommended to setup a script that manages these applications using tmux, especially if doing things over ssh as it can make it much
-easier to interact with and view. More information on tmux can be [found on their github](https://pages.github.com/](https://github.com/tmux/tmux/wiki)https://github.com/tmux/tmux/wiki).
+easier to interact with and view. More information on tmux can be [found on their github](https://github.com/tmux/tmux/wiki).
 ### Player Data File
 The player data file will only record unique rows. That is, if the in-game name, IP, website name, or GUID is different than any other row in the file, it will
 record this as a new player and add an additional row. This is to help track malicious players if they switch IP addresses, or in-game names.
