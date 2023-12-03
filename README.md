@@ -70,13 +70,13 @@ $ cat example_player.csv
 
 ## Additional Information
 ### tmux
-It is highly recommended setup a script that manages these applications using tmux, especially if doing things over ssh as it can make it much
+It is highly recommended to setup a script that manages these applications using tmux, especially if doing things over ssh as it can make it much
 easier to interact with and view. More information on tmux can be [found on their github](https://pages.github.com/](https://github.com/tmux/tmux/wiki)https://github.com/tmux/tmux/wiki).
 ### Player Data File
 The player data file will only record unique rows. That is, if the in-game name, IP, website name, or GUID is different than any other row in the file, it will
 record this as a new player and add an additional row. This is to help track malicious players if they switch IP addresses, or in-game names.
 ### Ping Updates
-Because there is no real time information given to the hoster, the closest we can get is by tracking CHAT or INFO messages. Anytime a player generates one
+Because there is no real time information given to the hoster outside of event updates, the closest we can get is by tracking CHAT or INFO event messages. Anytime a player generates one
 of these types of lines in the log files, we use all the information we can to update the current status of the player, which for now is just the ping. 
 
 ## Bugs
